@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { NewsCard } from '../components/NewsCard'
 import { Badge } from '../components/ui/Badge'
+import { Button } from '../components/ui/Button'
+import { Input } from '../components/ui/Field'
 import { ARTICLES } from '../data/demo'
 import type { NewsCategory } from '../types'
 

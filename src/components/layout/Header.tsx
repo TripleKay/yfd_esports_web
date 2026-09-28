@@ -41,11 +41,7 @@ export function Header() {
           ))}
         </nav>
 
-        <div className="hidden items-center gap-3 lg:flex">
-          <span className="inline-flex items-center gap-2 label-code text-critical">
-            <span className="size-1.5 rounded-full bg-critical pulse-live" />
-            ARENA LIVE
-          </span>
+        <div className="hidden lg:flex">
           <LinkButton to="/register">Register Now</LinkButton>
         </div>
 

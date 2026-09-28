@@ -22,6 +22,7 @@ export const NAV_LINKS = [
   { to: '/register', label: 'Register' },
   { to: '/schedule', label: 'Match Schedule' },
   { to: '/rules', label: 'Rules & FAQ' },
+  { to: '/news', label: 'News' },
 ] as const
 
 export const STATS = [

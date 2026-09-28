@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { fetchNews } from '../api/news'
 import {
   fetchRegistrationSettings,
   type RegistrationSettings,
@@ -9,8 +10,8 @@ import { DivisionCard } from '../components/DivisionCard'
 import { MatchCard } from '../components/MatchCard'
 import { NewsCard } from '../components/NewsCard'
 import { LinkButton } from '../components/ui/Button'
-import { ARTICLES, DIVISIONS, MATCHES, STATS } from '../data/demo'
-import type { GameTitle } from '../types'
+import { DIVISIONS, MATCHES, STATS } from '../data/demo'
+import type { GameTitle, NewsArticle } from '../types'
 
 const filters: { id: GameTitle | 'live'; label: string }[] = [
   { id: 'all', label: 'All Games' },
@@ -70,6 +71,7 @@ export function HomePage() {
   const [filter, setFilter] = useState<(typeof filters)[number]['id']>('all')
   const [settings, setSettings] = useState<RegistrationSettings | null>(null)
   const [settingsLoading, setSettingsLoading] = useState(true)
+  const [news, setNews] = useState<NewsArticle[]>([])
 
   useEffect(() => {
     let active = true
@@ -96,6 +98,26 @@ export function HomePage() {
     }
   }, [])
 
+  useEffect(() => {
+    let active = true
+
+    fetchNews({ excludeFeatured: true, limit: 3 })
+      .then((articles) => {
+        if (active) {
+          setNews(articles)
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setNews([])
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
   const countdown = useMemo(() => countdownFromSettings(settings), [settings])
 
   const fixtures = useMemo(() => {
@@ -108,8 +130,6 @@ export function HomePage() {
       return m.game === filter
     })
   }, [filter])
-
-  const news = ARTICLES.filter((a) => !a.featured).slice(0, 3)
 
   return (
     <>

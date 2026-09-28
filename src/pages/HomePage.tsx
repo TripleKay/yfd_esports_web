@@ -256,9 +256,6 @@ export function HomePage() {
                 broadcasts.
               </p>
             </div>
-            <LinkButton to="/news" variant="ghost">
-              All Transmissions Feed →
-            </LinkButton>
           </div>
           <div className="grid gap-5 md:grid-cols-3">
             {news.map((article) => (

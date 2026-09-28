@@ -1,8 +1,6 @@
 import { useMemo, useState } from 'react'
 import { NewsCard } from '../components/NewsCard'
 import { Badge } from '../components/ui/Badge'
-import { Button } from '../components/ui/Button'
-import { Input } from '../components/ui/Field'
 import { ARTICLES } from '../data/demo'
 import type { NewsCategory } from '../types'
 
@@ -18,8 +16,6 @@ const filters: { id: NewsCategory; label: string }[] = [
 export function NewsPage() {
   const [category, setCategory] = useState<NewsCategory>('all')
   const [query, setQuery] = useState('')
-  const [subscribed, setSubscribed] = useState(false)
-
   const featured = ARTICLES.find((a) => a.featured)
 
   const articles = useMemo(() => {
@@ -158,40 +154,6 @@ export function NewsPage() {
               No dispatches match this filter.
             </p>
           ) : null}
-        </div>
-      </section>
-
-      <section className="border-t border-border">
-        <div className="mx-auto max-w-[1280px] px-5 py-14 md:px-12">
-          <div className="flex flex-col gap-6 border border-violet/40 bg-gradient-to-r from-violet/20 to-transparent p-6 md:flex-row md:items-center md:justify-between md:p-8">
-            <div>
-              <h2 className="font-display text-2xl font-bold md:text-3xl">
-                Never Miss a Tournament Dispatch
-              </h2>
-              <p className="mt-2 text-sm text-muted">
-                Demo subscribe — wire to your newsletter API later.
-              </p>
-            </div>
-            {subscribed ? (
-              <p className="label-tactical text-cyan">Feed linked (demo)</p>
-            ) : (
-              <form
-                className="flex w-full max-w-md gap-2"
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  setSubscribed(true)
-                }}
-              >
-                <Input
-                  type="email"
-                  required
-                  placeholder="captain@company.com"
-                  aria-label="Email"
-                />
-                <Button type="submit">Subscribe</Button>
-              </form>
-            )}
-          </div>
         </div>
       </section>
     </>

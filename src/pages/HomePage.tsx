@@ -9,7 +9,7 @@ import { DivisionCard } from '../components/DivisionCard'
 import { MatchCard } from '../components/MatchCard'
 import { NewsCard } from '../components/NewsCard'
 import { LinkButton } from '../components/ui/Button'
-import { ARTICLES, DIVISIONS, MATCHES, SITE, STATS } from '../data/demo'
+import { ARTICLES, DIVISIONS, MATCHES, STATS } from '../data/demo'
 import type { GameTitle } from '../types'
 
 const filters: { id: GameTitle | 'live'; label: string }[] = [
@@ -133,10 +133,7 @@ export function HomePage() {
               <span className="relative inline-flex size-2 rounded-full bg-cyan" />
             </span>
             <span className="label-code font-semibold tracking-widest text-[#dbfcff]">
-              SEASON 4 TOURNAMENT CHAMPIONSHIP • $50,000 PRIZE POOL
-            </span>
-            <span className="label-code tracking-widest text-violet pl-1">
-              {SITE.region}
+              Yoma Family Day E-Sport TOURNAMENT CHAMPIONSHIP
             </span>
           </div>
 

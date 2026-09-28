@@ -26,10 +26,10 @@ export const NAV_LINKS = [
 ] as const
 
 export const STATS = [
-  { label: 'Confirmed Athletes', value: '192', tone: 'cyan' as const },
-  { label: 'Total Cash Purse', value: '$50,000', tone: 'violet' as const },
-  { label: 'Peak CCV Spectators', value: '48.2K', tone: 'primary' as const },
-  { label: 'Dedicated Arena Engine', value: '128 HZ', tone: 'critical' as const },
+  { label: 'Confirm team (MLBB)', value: '192', tone: 'cyan' as const },
+  { label: 'Final Price (MLBB)', value: '$50,000', tone: 'violet' as const },
+  { label: 'Confirm team (PS5)', value: '128 HZ', tone: 'critical' as const },
+  { label: 'Final Price (PS5)', value: '48.2K', tone: 'primary' as const },
 ]
 
 export const DIVISIONS: TournamentDivision[] = [

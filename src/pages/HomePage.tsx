@@ -133,10 +133,7 @@ export function HomePage() {
               <span className="relative inline-flex size-2 rounded-full bg-cyan" />
             </span>
             <span className="label-code font-semibold tracking-widest text-[#dbfcff]">
-              SEASON 4 TOURNAMENT CHAMPIONSHIP • $50,000 PRIZE POOL
-            </span>
-            <span className="label-code tracking-widest text-violet pl-1">
-              {SITE.region}
+              Yoma Family Day E-Sport TOURNAMENT CHAMPIONSHIP
             </span>
           </div>
 

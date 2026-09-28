@@ -1,0 +1,8 @@
+node_modules
+dist
+dist-ssr
+build
+coverage
+package-lock.json
+*.local
+.stitch-ref

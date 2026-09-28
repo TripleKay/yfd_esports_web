@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom'
 import type { NewsArticle } from '../types'
 
 export function NewsCard({ article }: { article: NewsArticle }) {
@@ -27,9 +26,7 @@ export function NewsCard({ article }: { article: NewsArticle }) {
         </h3>
         <p className="flex-1 text-sm leading-6 text-muted">{article.excerpt}</p>
         <div className="flex items-center justify-between pt-2">
-          <Link to="/news" className="label-tactical text-cyan hover:underline">
-            Read Article →
-          </Link>
+          <span className="label-tactical text-cyan">Read Article →</span>
           <span className="label-code text-faint">AUTH: {article.authCode}</span>
         </div>
       </div>

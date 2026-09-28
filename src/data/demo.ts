@@ -21,7 +21,6 @@ export const NAV_LINKS = [
   { to: '/', label: 'Home' },
   { to: '/register', label: 'Register' },
   { to: '/schedule', label: 'Match Schedule' },
-  { to: '/news', label: 'News' },
   { to: '/rules', label: 'Rules & FAQ' },
 ] as const
 

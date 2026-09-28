@@ -9,7 +9,7 @@ import { DivisionCard } from '../components/DivisionCard'
 import { MatchCard } from '../components/MatchCard'
 import { NewsCard } from '../components/NewsCard'
 import { LinkButton } from '../components/ui/Button'
-import { ARTICLES, DIVISIONS, MATCHES, SITE, STATS } from '../data/demo'
+import { ARTICLES, DIVISIONS, MATCHES, STATS } from '../data/demo'
 import type { GameTitle } from '../types'
 
 const filters: { id: GameTitle | 'live'; label: string }[] = [

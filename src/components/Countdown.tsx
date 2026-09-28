@@ -1,14 +1,21 @@
 import { useEffect, useState } from 'react'
 
 interface CountdownProps {
-  target: Date
+  target: Date | null
+  title?: string
+  phase?: string
+  loading?: boolean
 }
 
 function pad(n: number) {
   return String(Math.max(0, n)).padStart(2, '0')
 }
 
-function getParts(target: Date) {
+function getParts(target: Date | null) {
+  if (!target) {
+    return { days: 0, hours: 0, minutes: 0, seconds: 0 }
+  }
+
   const diff = Math.max(0, target.getTime() - Date.now())
   const days = Math.floor(diff / (1000 * 60 * 60 * 24))
   const hours = Math.floor((diff / (1000 * 60 * 60)) % 24)
@@ -17,10 +24,20 @@ function getParts(target: Date) {
   return { days, hours, minutes, seconds }
 }
 
-export function Countdown({ target }: CountdownProps) {
+export function Countdown({
+  target,
+  title = 'Tournament Kickoff Countdown',
+  phase = 'PHASE: REGISTRATION_LOCK',
+  loading = false,
+}: CountdownProps) {
   const [parts, setParts] = useState(() => getParts(target))
 
   useEffect(() => {
+    setParts(getParts(target))
+    if (!target) {
+      return
+    }
+
     const id = window.setInterval(() => setParts(getParts(target)), 1000)
     return () => window.clearInterval(id)
   }, [target])
@@ -40,10 +57,10 @@ export function Countdown({ target }: CountdownProps) {
             ⏱
           </span>
           <span className="label-tactical text-[#dbfcff]">
-            Tournament Kickoff Countdown
+            {loading ? 'Loading countdown…' : title}
           </span>
         </div>
-        <span className="label-code text-violet">PHASE: REGISTRATION_LOCK</span>
+        <span className="label-code text-violet">{phase}</span>
       </div>
       <div className="grid grid-cols-4 gap-3 text-center">
         {cells.map((cell) => (
@@ -54,7 +71,7 @@ export function Countdown({ target }: CountdownProps) {
             <span
               className={`font-display text-3xl font-bold tracking-tight tabular md:text-4xl ${cell.accent}`}
             >
-              {pad(cell.value)}
+              {loading ? '--' : pad(cell.value)}
             </span>
             <span className="mt-1 label-code text-muted">{cell.label}</span>
           </div>

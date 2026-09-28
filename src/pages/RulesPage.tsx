@@ -167,7 +167,7 @@ export function RulesPage() {
                         </button>
                       ) : null}
                       <p className="mt-4 label-code text-faint">
-                        LAST RATIFIED: 28 JAN 2025 // ARBITER COUNCIL
+                        LAST RATIFIED: 28 JAN 2026 // ARBITER COUNCIL
                       </p>
                     </div>
                   ) : null}
@@ -181,7 +181,7 @@ export function RulesPage() {
           <div className="border border-border bg-chassis p-5">
             <p className="label-code text-cyan">Community Rules</p>
             <ul className="mt-4 space-y-2 font-mono text-xs text-muted">
-              <li>Updated: 28 Jan 2025</li>
+              <li>Updated: 28 Jan 2026</li>
               <li>Region: Asia SE</li>
               <li>Version: 2.10.4</li>
             </ul>
@@ -206,7 +206,7 @@ export function RulesPage() {
               className="h-36 w-full object-cover opacity-70"
             />
             <div className="absolute inset-0 flex items-end bg-gradient-to-t from-ground to-transparent p-4">
-              <p className="label-code text-cyan">2025 FINAL ARENA · SINGAPORE</p>
+              <p className="label-code text-cyan">2026 FINAL ARENA · SINGAPORE</p>
             </div>
           </div>
         </aside>

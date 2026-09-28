@@ -78,7 +78,7 @@ export function Footer() {
           <span className="font-mono">
             NEXUS_TECH · QUANTUM_RIGS · PULSE_AUDIO · ARMORED_DATA
           </span>
-          <span>© 2025 YFD Esports. All competitive rights reserved.</span>
+          <span>© 2026 YFD Esports. All competitive rights reserved.</span>
         </div>
       </div>
     </footer>

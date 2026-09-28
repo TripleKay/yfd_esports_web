@@ -1,5 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import {
+  fetchRegistrationSettings,
+  type RegistrationSettings,
+} from '../api/registrations'
 import { Countdown } from '../components/Countdown'
 import { DivisionCard } from '../components/DivisionCard'
 import { MatchCard } from '../components/MatchCard'
@@ -22,8 +26,77 @@ const toneClass = {
   critical: 'text-critical',
 } as const
 
+function countdownFromSettings(settings: RegistrationSettings | null): {
+  target: Date | null
+  title: string
+  phase: string
+} {
+  if (!settings || !settings.is_enabled) {
+    return {
+      target: null,
+      title: 'Tournament Kickoff Countdown',
+      phase: 'PHASE: REGISTRATION_OFF',
+    }
+  }
+
+  const now = Date.now()
+  const startsAt = settings.starts_at ? new Date(settings.starts_at) : null
+  const endsAt = settings.ends_at ? new Date(settings.ends_at) : null
+
+  if (startsAt && now < startsAt.getTime()) {
+    return {
+      target: startsAt,
+      title: 'Registration Opens Countdown',
+      phase: 'PHASE: PRE_REGISTRATION',
+    }
+  }
+
+  if (endsAt && now < endsAt.getTime()) {
+    return {
+      target: endsAt,
+      title: 'Tournament Kickoff Countdown',
+      phase: 'PHASE: REGISTRATION_LOCK',
+    }
+  }
+
+  return {
+    target: null,
+    title: 'Tournament Kickoff Countdown',
+    phase: 'PHASE: REGISTRATION_CLOSED',
+  }
+}
+
 export function HomePage() {
   const [filter, setFilter] = useState<(typeof filters)[number]['id']>('all')
+  const [settings, setSettings] = useState<RegistrationSettings | null>(null)
+  const [settingsLoading, setSettingsLoading] = useState(true)
+
+  useEffect(() => {
+    let active = true
+
+    fetchRegistrationSettings()
+      .then((result) => {
+        if (active) {
+          setSettings(result)
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setSettings(null)
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setSettingsLoading(false)
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const countdown = useMemo(() => countdownFromSettings(settings), [settings])
 
   const fixtures = useMemo(() => {
     const homeSet = MATCHES.filter((m) =>
@@ -81,7 +154,12 @@ export function HomePage() {
           </p>
 
           <div className="mt-9 flex w-full justify-center">
-            <Countdown target={SITE.kickoffTarget} />
+            <Countdown
+              target={countdown.target}
+              title={countdown.title}
+              phase={countdown.phase}
+              loading={settingsLoading}
+            />
           </div>
 
           <div className="mt-12 grid w-full max-w-5xl grid-cols-1 gap-6 text-left md:grid-cols-2">

@@ -79,6 +79,8 @@ export interface RosterPlayer {
   name: string
   nrc: string
   employeeId: string
+  phone: string
+  corporateEmail: string
   gameUserId: string
   zoneId: string
   verified: boolean

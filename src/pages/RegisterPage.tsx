@@ -21,7 +21,6 @@ type TeamForm = {
   teamName: string
   teamTag: string
   organization: string
-  captainEmail: string
   discordId: string
 }
 
@@ -38,7 +37,6 @@ const initialTeam: TeamForm = {
   teamName: 'Nexus Prime',
   teamTag: 'NXP',
   organization: ORGANIZATIONS[0],
-  captainEmail: 'captain@nexus.corp',
   discordId: 'nexus_captain#2048',
 }
 
@@ -59,6 +57,8 @@ function emptyRosterPlayer(index: number): RosterPlayer {
     name: '',
     nrc: '',
     employeeId: '',
+    phone: '',
+    corporateEmail: '',
     gameUserId: '',
     zoneId: '',
     verified: false,
@@ -78,6 +78,9 @@ export function RegisterPage() {
     params.get('division') === 'ps5' ? 'ps5' : ('mlbb' as Exclude<GameTitle, 'all'>)
   const [division, setDivision] = useState(initial)
   const [roster, setRoster] = useState<RosterPlayer[]>(DEMO_ROSTER)
+  const [captainPlayerId, setCaptainPlayerId] = useState<string | null>(
+    DEMO_ROSTER[0]?.id ?? null,
+  )
   const [team, setTeam] = useState(initialTeam)
   const [solo, setSolo] = useState(initialSolo)
   const [crest, setCrest] = useState<File | null>(null)
@@ -161,7 +164,11 @@ export function RegisterPage() {
         return prev
       }
 
-      return relabelRoster(prev.filter((player) => player.id !== id))
+      const next = relabelRoster(prev.filter((player) => player.id !== id))
+      setCaptainPlayerId((current) =>
+        current === id ? (next[0]?.id ?? null) : current,
+      )
+      return next
     })
   }
 
@@ -171,6 +178,13 @@ export function RegisterPage() {
       setError(settings?.closed_reason ?? 'Registration is currently closed.')
       return
     }
+    if (division === 'mlbb') {
+      if (!captainPlayerId || !roster.some((p) => p.id === captainPlayerId)) {
+        setError('Select one roster player as team captain.')
+        return
+      }
+    }
+
     setSubmitting(true)
     setError(null)
 
@@ -179,7 +193,6 @@ export function RegisterPage() {
     formData.set('team_name', team.teamName)
     formData.set('team_tag', team.teamTag)
     formData.set('organization', team.organization)
-    formData.set('captain_email', team.captainEmail)
     formData.set('discord_id', team.discordId)
     formData.set('employee_certified', employeeCertified ? '1' : '0')
     formData.set('rules_accepted', rulesAccepted ? '1' : '0')
@@ -198,8 +211,11 @@ export function RegisterPage() {
             full_name: player.name,
             nrc: player.nrc,
             employee_id: player.employeeId,
+            phone: player.phone,
+            email: player.corporateEmail,
             game_id: player.gameUserId,
             zone_id: player.zoneId,
+            is_captain: player.id === captainPlayerId,
           })),
         ),
       )
@@ -360,14 +376,6 @@ export function RegisterPage() {
                   ))}
                 </Select>
               </Field>
-              <Field label="Captain Corporate Email" required>
-                <Input
-                  type="email"
-                  value={team.captainEmail}
-                  onChange={(e) => setTeam({ ...team, captainEmail: e.target.value })}
-                  required
-                />
-              </Field>
               <Field label="Discord ID / Tag" required>
                 <Input
                   value={team.discordId}
@@ -395,7 +403,8 @@ export function RegisterPage() {
                   <p className="mt-1 text-sm text-muted">
                     Register at least {mlbbMinPlayers} players and up to{' '}
                     {mlbbMaxPlayers}. All players must provide verified employee
-                    identification and valid MLBB Game & Zone IDs.
+                    identification, corporate contact details, valid MLBB Game & Zone
+                    IDs, and exactly one designated team captain.
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -431,9 +440,23 @@ export function RegisterPage() {
                         </span>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <Badge tone={player.verified ? 'cyan' : 'upcoming'}>
-                          {player.verified ? 'EMP Verified ✓' : 'Pending Verify'}
-                        </Badge>
+                        <label className="flex cursor-pointer items-center gap-2 border border-border bg-surface-high px-3 py-1.5 text-xs uppercase tracking-wide text-muted">
+                          <input
+                            type="radio"
+                            name="team-captain"
+                            className="accent-cyan"
+                            checked={captainPlayerId === player.id}
+                            disabled={!accepting}
+                            onChange={() => setCaptainPlayerId(player.id)}
+                          />
+                          <span
+                            className={
+                              captainPlayerId === player.id ? 'text-cyan' : undefined
+                            }
+                          >
+                            Team Captain
+                          </span>
+                        </label>
                         {roster.length > mlbbMinPlayers ? (
                           <Button
                             type="button"
@@ -475,6 +498,26 @@ export function RegisterPage() {
                           required
                         />
                       </Field>
+                      <Field label="Phone Number" required>
+                        <Input
+                          type="tel"
+                          value={player.phone}
+                          onChange={(e) =>
+                            updatePlayer(player.id, 'phone', e.target.value)
+                          }
+                          required
+                        />
+                      </Field>
+                      <Field label="Mail" required>
+                        <Input
+                          type="email"
+                          value={player.corporateEmail}
+                          onChange={(e) =>
+                            updatePlayer(player.id, 'corporateEmail', e.target.value)
+                          }
+                          required
+                        />
+                      </Field>
                       <Field label="MLBB Game User ID" required>
                         <Input
                           value={player.gameUserId}
@@ -485,18 +528,13 @@ export function RegisterPage() {
                         />
                       </Field>
                       <Field label="Server / Zone ID" required>
-                        <div className="flex gap-2">
-                          <Input
-                            value={player.zoneId}
-                            onChange={(e) =>
-                              updatePlayer(player.id, 'zoneId', e.target.value)
-                            }
-                            required
-                          />
-                          <Button type="button" variant="secondary" clip={false}>
-                            Verify
-                          </Button>
-                        </div>
+                        <Input
+                          value={player.zoneId}
+                          onChange={(e) =>
+                            updatePlayer(player.id, 'zoneId', e.target.value)
+                          }
+                          required
+                        />
                       </Field>
                       <Field label="Primary Specialization" required>
                         <Select

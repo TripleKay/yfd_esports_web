@@ -79,32 +79,18 @@ export function NewsPage() {
           </p>
         </div>
 
-        <div className="mt-6 flex flex-wrap items-end justify-between gap-6">
-          <div className="max-w-3xl">
-            <p className="label-code text-violet">
-              TRANSMISSION FEED // REAL-TIME DISPATCHES
-            </p>
-            <h1 className="mt-3 font-display text-3xl font-bold tracking-tight md:text-5xl">
-              Latest News &{' '}
-              <span className="text-cyan text-glow-cyan">Announcements</span>
-            </h1>
-            <p className="mt-4 text-muted">
-              Official tournament briefings, balance patches, roster lock alerts,
-              and broadcast schedules direct from the YFD Arena Control Deck.
-            </p>
-          </div>
-          <div className="grid grid-cols-3 gap-2 text-center">
-            {[
-              ['NETWORK LOAD', '78.4%'],
-              ['ACTIVE TEAMS', '128'],
-              ['DISPATCHES', String(articles.length)],
-            ].map(([label, value]) => (
-              <div key={label} className="border border-border bg-chassis px-3 py-3">
-                <p className="label-code text-muted">{label}</p>
-                <p className="mt-1 font-mono text-sm text-cyan">{value}</p>
-              </div>
-            ))}
-          </div>
+        <div className="mt-6 max-w-3xl">
+          <p className="label-code text-violet">
+            TRANSMISSION FEED // REAL-TIME DISPATCHES
+          </p>
+          <h1 className="mt-3 font-display text-3xl font-bold tracking-tight md:text-5xl">
+            Latest News &{' '}
+            <span className="text-cyan text-glow-cyan">Announcements</span>
+          </h1>
+          <p className="mt-4 text-muted">
+            Official tournament briefings, balance patches, roster lock alerts,
+            and broadcast schedules direct from the YFD Arena Control Deck.
+          </p>
         </div>
 
         <div className="mt-8 flex flex-col gap-4 lg:flex-row lg:items-center">

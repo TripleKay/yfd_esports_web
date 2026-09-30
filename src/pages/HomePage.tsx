@@ -13,11 +13,10 @@ import { LinkButton } from '../components/ui/Button'
 import { DIVISIONS, MATCHES, STATS } from '../data/demo'
 import type { GameTitle, NewsArticle } from '../types'
 
-const filters: { id: GameTitle | 'live'; label: string }[] = [
-  { id: 'all', label: 'All Games' },
+const filters: { id: GameTitle; label: string }[] = [
+  { id: 'all', label: 'Today Match' },
   { id: 'mlbb', label: 'MLBB 5v5' },
   { id: 'ps5', label: 'PS5 Football 1v1' },
-  { id: 'live', label: 'Live Only' },
 ]
 
 const toneClass = {
@@ -68,7 +67,7 @@ function countdownFromSettings(settings: RegistrationSettings | null): {
 }
 
 export function HomePage() {
-  const [filter, setFilter] = useState<(typeof filters)[number]['id']>('all')
+  const [filter, setFilter] = useState<GameTitle>('all')
   const [settings, setSettings] = useState<RegistrationSettings | null>(null)
   const [settingsLoading, setSettingsLoading] = useState(true)
   const [news, setNews] = useState<NewsArticle[]>([])
@@ -124,11 +123,7 @@ export function HomePage() {
     const homeSet = MATCHES.filter((m) =>
       ['m1', 'm2', 'm3', 'm4'].includes(m.id),
     )
-    return homeSet.filter((m) => {
-      if (filter === 'all') return true
-      if (filter === 'live') return m.status === 'live'
-      return m.game === filter
-    })
+    return homeSet.filter((m) => filter === 'all' || m.game === filter)
   }, [filter])
 
   return (

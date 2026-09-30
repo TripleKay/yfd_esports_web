@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
@@ -72,15 +72,56 @@ function relabelRoster(players: RosterPlayer[]): RosterPlayer[] {
   }))
 }
 
+const ROSTER_REQUIRED_FIELDS: { key: keyof RosterPlayer; label: string }[] = [
+  { key: 'name', label: 'Full Legal Name' },
+  { key: 'nrc', label: 'National Reg. Card (NRC / ID)' },
+  { key: 'employeeId', label: 'Corporate Employee ID' },
+  { key: 'phone', label: 'Phone Number' },
+  { key: 'corporateEmail', label: 'Mail' },
+  { key: 'gameUserId', label: 'MLBB Game User ID' },
+  { key: 'zoneId', label: 'Server / Zone ID' },
+]
+
+function missingRosterFieldLabels(player: RosterPlayer): string[] {
+  return ROSTER_REQUIRED_FIELDS.filter(({ key }) => {
+    const value = player[key]
+    return typeof value !== 'string' || !value.trim()
+  }).map(({ label }) => label)
+}
+
+function collectMlbbRosterValidation(
+  roster: RosterPlayer[],
+  captainPlayerId: string | null,
+): { messages: string[]; incompletePlayerIds: string[] } {
+  const messages: string[] = []
+  const incompletePlayerIds: string[] = []
+
+  if (!captainPlayerId || !roster.some((player) => player.id === captainPlayerId)) {
+    messages.push('Select exactly one Team Captain.')
+  }
+
+  for (const player of roster) {
+    const missing = missingRosterFieldLabels(player)
+    if (missing.length === 0) {
+      continue
+    }
+    incompletePlayerIds.push(player.id)
+    const who = player.name.trim()
+      ? `${player.label} (${player.name})`
+      : player.label
+    messages.push(`${who}: ${missing.join(', ')}`)
+  }
+
+  return { messages, incompletePlayerIds }
+}
+
 export function RegisterPage() {
   const [params] = useSearchParams()
   const initial =
     params.get('division') === 'ps5' ? 'ps5' : ('mlbb' as Exclude<GameTitle, 'all'>)
   const [division, setDivision] = useState(initial)
   const [roster, setRoster] = useState<RosterPlayer[]>(DEMO_ROSTER)
-  const [captainPlayerId, setCaptainPlayerId] = useState<string | null>(
-    DEMO_ROSTER[0]?.id ?? null,
-  )
+  const [captainPlayerId, setCaptainPlayerId] = useState<string | null>(null)
   const [team, setTeam] = useState(initialTeam)
   const [solo, setSolo] = useState(initialSolo)
   const [crest, setCrest] = useState<File | null>(null)
@@ -89,6 +130,12 @@ export function RegisterPage() {
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [rosterAlertMessages, setRosterAlertMessages] = useState<string[]>([])
+  const [incompleteRosterPlayerIds, setIncompleteRosterPlayerIds] = useState<
+    string[]
+  >([])
+  const rosterSectionRef = useRef<HTMLElement>(null)
+  const playerCardRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const [referenceId, setReferenceId] = useState<number | null>(null)
   const [settings, setSettings] = useState<RegistrationSettings | null>(null)
   const [settingsLoading, setSettingsLoading] = useState(true)
@@ -142,10 +189,17 @@ export function RegisterPage() {
     }
   }, [])
 
+  function clearRosterValidation() {
+    setRosterAlertMessages([])
+    setIncompleteRosterPlayerIds([])
+  }
+
   function updatePlayer(id: string, key: keyof RosterPlayer, value: string) {
     setRoster((prev) =>
       prev.map((p) => (p.id === id ? { ...p, [key]: value } : p)),
     )
+    clearRosterValidation()
+    setError(null)
   }
 
   function addPlayer() {
@@ -165,24 +219,48 @@ export function RegisterPage() {
       }
 
       const next = relabelRoster(prev.filter((player) => player.id !== id))
-      setCaptainPlayerId((current) =>
-        current === id ? (next[0]?.id ?? null) : current,
-      )
+      setCaptainPlayerId((current) => (current === id ? null : current))
       return next
     })
   }
 
-  async function onSubmit(e: FormEvent) {
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!accepting) {
       setError(settings?.closed_reason ?? 'Registration is currently closed.')
       return
     }
+
+    const form = e.currentTarget
+    if (!form.reportValidity()) {
+      setError('Please complete all required fields marked with *.')
+      return
+    }
+
     if (division === 'mlbb') {
-      if (!captainPlayerId || !roster.some((p) => p.id === captainPlayerId)) {
-        setError('Select one roster player as team captain.')
+      const { messages, incompletePlayerIds } = collectMlbbRosterValidation(
+        roster,
+        captainPlayerId,
+      )
+      if (messages.length > 0) {
+        setRosterAlertMessages(messages)
+        setIncompleteRosterPlayerIds(incompletePlayerIds)
+        setError(messages[0])
+        rosterSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        const scrollTarget =
+          incompletePlayerIds[0] ??
+          (captainPlayerId ? null : roster[0]?.id ?? null)
+        if (scrollTarget && playerCardRefs.current[scrollTarget]) {
+          window.setTimeout(() => {
+            playerCardRefs.current[scrollTarget]?.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center',
+            })
+          }, 200)
+        }
         return
       }
+      clearRosterValidation()
     }
 
     setSubmitting(true)
@@ -394,7 +472,10 @@ export function RegisterPage() {
           </section>
 
           {division === 'mlbb' ? (
-            <section className="border border-border bg-chassis p-5 md:p-6">
+            <section
+              ref={rosterSectionRef}
+              className="border border-border bg-chassis p-5 md:p-6"
+            >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="font-display text-xl font-semibold">
@@ -423,11 +504,35 @@ export function RegisterPage() {
                 </div>
               </div>
 
+              {rosterAlertMessages.length > 0 ? (
+                <div
+                  role="alert"
+                  className="mt-4 border border-critical/40 bg-critical/10 px-4 py-3 text-sm text-critical"
+                >
+                  <p className="label-code text-critical">Roster incomplete</p>
+                  <p className="mt-1 text-ink">
+                    Fix the items below before you confirm registration.
+                  </p>
+                  <ul className="mt-2 list-disc space-y-1 pl-5">
+                    {rosterAlertMessages.map((message) => (
+                      <li key={message}>{message}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
               <div className="mt-6 space-y-4">
                 {roster.map((player, index) => (
                   <div
                     key={player.id}
-                    className="border border-border bg-surface-low p-4"
+                    ref={(element) => {
+                      playerCardRefs.current[player.id] = element
+                    }}
+                    className={`border bg-surface-low p-4 ${
+                      incompleteRosterPlayerIds.includes(player.id)
+                        ? 'border-critical/60 ring-1 ring-critical/30'
+                        : 'border-border'
+                    }`}
                   >
                     <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                       <div>
@@ -447,14 +552,19 @@ export function RegisterPage() {
                             className="accent-cyan"
                             checked={captainPlayerId === player.id}
                             disabled={!accepting}
-                            onChange={() => setCaptainPlayerId(player.id)}
+                            required={index === 0}
+                            onChange={() => {
+                              setCaptainPlayerId(player.id)
+                              clearRosterValidation()
+                              setError(null)
+                            }}
                           />
                           <span
                             className={
                               captainPlayerId === player.id ? 'text-cyan' : undefined
                             }
                           >
-                            Team Captain
+                            Team Captain *
                           </span>
                         </label>
                         {roster.length > mlbbMinPlayers ? (

@@ -16,11 +16,13 @@ import type { GameTitle, RosterPlayer } from '../types'
 const roles = ['JUNGLER', 'MID', 'GOLD', 'ROAM', 'EXP'] as const
 const DEFAULT_MLBB_MIN_PLAYERS = 5
 const DEFAULT_MLBB_MAX_PLAYERS = 7
+const ORGANIZATION_OTHER = 'Other'
 
 type TeamForm = {
   teamName: string
   teamTag: string
   organization: string
+  organizationOther: string
   discordId: string
 }
 
@@ -37,7 +39,15 @@ const initialTeam: TeamForm = {
   teamName: 'Nexus Prime',
   teamTag: 'NXP',
   organization: ORGANIZATIONS[0],
+  organizationOther: '',
   discordId: 'nexus_captain#2048',
+}
+
+function resolvedOrganization(team: TeamForm): string {
+  if (team.organization === ORGANIZATION_OTHER) {
+    return team.organizationOther.trim()
+  }
+  return team.organization
 }
 
 const initialSolo: SoloForm = {
@@ -89,6 +99,16 @@ function missingRosterFieldLabels(player: RosterPlayer): string[] {
   }).map(({ label }) => label)
 }
 
+function initialDivisionFromSearch(
+  params: URLSearchParams,
+): Exclude<GameTitle, 'all'> | null {
+  const value = params.get('division')
+  if (value === 'mlbb' || value === 'ps5') {
+    return value
+  }
+  return null
+}
+
 function collectMlbbRosterValidation(
   roster: RosterPlayer[],
   captainPlayerId: string | null,
@@ -117,9 +137,9 @@ function collectMlbbRosterValidation(
 
 export function RegisterPage() {
   const [params] = useSearchParams()
-  const initial =
-    params.get('division') === 'ps5' ? 'ps5' : ('mlbb' as Exclude<GameTitle, 'all'>)
-  const [division, setDivision] = useState(initial)
+  const [division, setDivision] = useState<Exclude<GameTitle, 'all'> | null>(() =>
+    initialDivisionFromSearch(params),
+  )
   const [roster, setRoster] = useState<RosterPlayer[]>(DEMO_ROSTER)
   const [captainPlayerId, setCaptainPlayerId] = useState<string | null>(null)
   const [team, setTeam] = useState(initialTeam)
@@ -135,6 +155,7 @@ export function RegisterPage() {
     string[]
   >([])
   const rosterSectionRef = useRef<HTMLElement>(null)
+  const divisionSectionRef = useRef<HTMLDivElement>(null)
   const playerCardRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const [referenceId, setReferenceId] = useState<number | null>(null)
   const [settings, setSettings] = useState<RegistrationSettings | null>(null)
@@ -144,7 +165,7 @@ export function RegisterPage() {
   const [mlbbMaxPlayers, setMlbbMaxPlayers] = useState(DEFAULT_MLBB_MAX_PLAYERS)
 
   const selected = useMemo(
-    () => DIVISIONS.find((d) => d.id === division)!,
+    () => (division ? DIVISIONS.find((d) => d.id === division) ?? null : null),
     [division],
   )
 
@@ -231,6 +252,12 @@ export function RegisterPage() {
       return
     }
 
+    if (!division) {
+      setError('Choose one competition format (MLBB squad or PS5 solo) to continue.')
+      divisionSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      return
+    }
+
     const form = e.currentTarget
     if (!form.reportValidity()) {
       setError('Please complete all required fields marked with *.')
@@ -270,7 +297,7 @@ export function RegisterPage() {
     formData.set('division', division)
     formData.set('team_name', team.teamName)
     formData.set('team_tag', team.teamTag)
-    formData.set('organization', team.organization)
+    formData.set('organization', resolvedOrganization(team))
     formData.set('discord_id', team.discordId)
     formData.set('employee_certified', employeeCertified ? '1' : '0')
     formData.set('rules_accepted', rulesAccepted ? '1' : '0')
@@ -344,35 +371,84 @@ export function RegisterPage() {
         </p>
       </div>
 
-      <div className="mb-8 grid gap-4 md:grid-cols-2">
-        {DIVISIONS.map((d) => {
-          const active = division === d.id
-          return (
-            <button
-              key={d.id}
-              type="button"
-              onClick={() => setDivision(d.id)}
-              className={[
-                'border p-5 text-left transition-colors',
-                active
-                  ? 'border-cyan bg-cyan/5 glow-cyan'
-                  : 'border-border bg-chassis hover:border-violet/50',
-              ].join(' ')}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="label-code text-muted">
-                  {d.id === 'mlbb' ? '5v5 SQUAD' : '1v1 SOLO'}
-                </span>
-                {active ? <Badge tone="cyan">Current Selection</Badge> : null}
-              </div>
-              <h2 className="mt-2 font-display text-xl font-bold">{d.title}</h2>
-              <p className="mt-1 text-sm text-muted">{d.tierLabel} · {d.badge}</p>
-              <p className="mt-4 font-display text-2xl font-bold text-cyan tabular">
-                {d.prizePool}
-              </p>
-            </button>
-          )
-        })}
+      <div ref={divisionSectionRef} className="mb-8">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="font-display text-xl font-semibold">
+              Step 1 · Choose your competition
+              <span className="text-cyan"> *</span>
+            </h2>
+            <p className="mt-1 max-w-2xl text-sm text-muted">
+              Select exactly one tournament format. You can switch anytime before
+              you submit — the form below updates to match your choice.
+            </p>
+          </div>
+          {division ? (
+            <Badge tone="cyan">Format selected</Badge>
+          ) : (
+            <Badge tone="upcoming">Pick one to continue</Badge>
+          )}
+        </div>
+
+        {!division ? (
+          <div
+            role="status"
+            className="mb-4 border border-violet/40 bg-violet/10 px-4 py-3 text-sm text-ink"
+          >
+            Tap <strong className="text-cyan">MLBB 5v5 Squad</strong> or{' '}
+            <strong className="text-cyan">PS5 Football 1v1</strong> to unlock the
+            registration form.
+          </div>
+        ) : null}
+
+        <div
+          className="grid gap-4 md:grid-cols-2"
+          role="radiogroup"
+          aria-label="Tournament format"
+        >
+          {DIVISIONS.map((d) => {
+            const active = division === d.id
+            const awaitingChoice = division === null
+            return (
+              <button
+                key={d.id}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => {
+                  setDivision(d.id)
+                  setError(null)
+                }}
+                className={[
+                  'border p-5 text-left transition-colors',
+                  active
+                    ? 'border-cyan bg-cyan/5 glow-cyan'
+                    : awaitingChoice
+                      ? 'border-dashed border-violet/50 bg-chassis hover:border-cyan/60 hover:bg-cyan/5'
+                      : 'border-border bg-chassis hover:border-violet/50',
+                ].join(' ')}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="label-code text-muted">
+                    {d.id === 'mlbb' ? '5v5 SQUAD' : '1v1 SOLO'}
+                  </span>
+                  {active ? (
+                    <Badge tone="cyan">Your selection</Badge>
+                  ) : (
+                    <span className="label-code text-faint">Select this format</span>
+                  )}
+                </div>
+                <h2 className="mt-2 font-display text-xl font-bold">{d.title}</h2>
+                <p className="mt-1 text-sm text-muted">
+                  {d.tierLabel} · {d.badge}
+                </p>
+                <p className="mt-4 font-display text-2xl font-bold text-cyan tabular">
+                  {d.prizePool}
+                </p>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {!settingsLoading && !accepting ? (
@@ -396,7 +472,8 @@ export function RegisterPage() {
             Registration Pending Admin Review
           </h2>
           <p className="mt-2 text-muted">
-            Your {selected.title} entry is locked and waiting for verification.
+            Your {selected?.title ?? 'tournament'} entry is locked and waiting for
+            verification.
             {referenceId ? ` Reference #${referenceId}.` : ''}
           </p>
           <Button
@@ -405,20 +482,29 @@ export function RegisterPage() {
             onClick={() => {
               setSubmitted(false)
               setReferenceId(null)
+              setDivision(null)
             }}
           >
             Submit Another Entry
           </Button>
         </div>
-      ) : accepting ? (
+      ) : accepting && !division ? (
+        <div className="border border-border bg-chassis p-8 text-center">
+          <p className="label-code text-muted">Registration form locked</p>
+          <p className="mt-2 text-sm text-muted">
+            Choose MLBB squad or PS5 solo above to open team details and roster
+            fields.
+          </p>
+        </div>
+      ) : accepting && division ? (
         <form onSubmit={(event) => void onSubmit(event)} className="space-y-8">
           <section className="border border-border bg-chassis p-5 md:p-6">
             <h2 className="font-display text-xl font-semibold">
-              01 · Team Identity & Contact
+              02 · Team Identity & Contact
             </h2>
             <p className="mt-1 text-sm text-muted">
               Primary organization affiliation and roster meta identifiers for{' '}
-              {selected.title}.
+              {selected?.title ?? 'your division'}.
             </p>
             <div className="mt-6 grid gap-4 md:grid-cols-2">
               <Field label="Team Name" required>
@@ -444,7 +530,15 @@ export function RegisterPage() {
               <Field label="Organization / Entity" required>
                 <Select
                   value={team.organization}
-                  onChange={(e) => setTeam({ ...team, organization: e.target.value })}
+                  onChange={(e) => {
+                    const organization = e.target.value
+                    setTeam({
+                      ...team,
+                      organization,
+                      organizationOther:
+                        organization === ORGANIZATION_OTHER ? team.organizationOther : '',
+                    })
+                  }}
                   required
                 >
                   {ORGANIZATIONS.map((org) => (
@@ -452,8 +546,21 @@ export function RegisterPage() {
                       {org}
                     </option>
                   ))}
+                  <option value={ORGANIZATION_OTHER}>Other</option>
                 </Select>
               </Field>
+              {team.organization === ORGANIZATION_OTHER ? (
+                <Field label="Organization Name" required>
+                  <Input
+                    value={team.organizationOther}
+                    onChange={(e) =>
+                      setTeam({ ...team, organizationOther: e.target.value })
+                    }
+                    placeholder="Enter your organization / entity name"
+                    required
+                  />
+                </Field>
+              ) : null}
               <Field label="Discord ID / Tag" required>
                 <Input
                   value={team.discordId}
@@ -479,7 +586,7 @@ export function RegisterPage() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="font-display text-xl font-semibold">
-                    02 · Roster Registration ({mlbbMinPlayers}–{mlbbMaxPlayers} Players)
+                    03 · Roster Registration ({mlbbMinPlayers}–{mlbbMaxPlayers} Players)
                   </h2>
                   <p className="mt-1 text-sm text-muted">
                     Register at least {mlbbMinPlayers} players and up to{' '}
@@ -668,7 +775,7 @@ export function RegisterPage() {
           ) : (
             <section className="border border-border bg-chassis p-5 md:p-6">
               <h2 className="font-display text-xl font-semibold">
-                02 · Solo Gladiator Registration (PS5 1v1)
+                03 · Solo Gladiator Registration (PS5 1v1)
               </h2>
               <div className="mt-6 grid gap-4 md:grid-cols-2">
                 <Field label="Full Legal Name" required>
@@ -724,7 +831,7 @@ export function RegisterPage() {
 
           <section className="border border-border bg-chassis p-5 md:p-6">
             <h2 className="font-display text-xl font-semibold">
-              03 · Compliance & Verification Certification
+              04 · Compliance & Verification Certification
             </h2>
             <div className="mt-5 space-y-4 text-sm text-muted">
               <label className="flex items-start gap-3">

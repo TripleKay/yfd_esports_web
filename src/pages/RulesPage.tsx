@@ -1,41 +1,9 @@
-import { useMemo, useState } from 'react'
-import { Button, LinkButton } from '../components/ui/Button'
-import { Input } from '../components/ui/Field'
+import { useState } from 'react'
+import { Button } from '../components/ui/Button'
 import { FAQS } from '../data/demo'
 
-const categories = [
-  'ALL QUESTIONS',
-  'GENERAL & ELIGIBILITY',
-  'MLBB 5v5 RULES',
-  'PS5 FOOTBALL 1v1',
-  'REGISTRATION & NRC',
-  'SCHEDULE & DISPUTES',
-] as const
-
 export function RulesPage() {
-  const [query, setQuery] = useState('')
-  const [category, setCategory] = useState<(typeof categories)[number]>('ALL QUESTIONS')
   const [openId, setOpenId] = useState<string>(FAQS[0]?.id ?? '')
-
-  const filtered = useMemo(() => {
-    return FAQS.filter((faq) => {
-      const catOk =
-        category === 'ALL QUESTIONS' ||
-        faq.category.toUpperCase().includes(category.replace(' RULES', '').split(' ')[0]) ||
-        (category === 'GENERAL & ELIGIBILITY' &&
-          faq.category.includes('GENERAL')) ||
-        (category === 'MLBB 5v5 RULES' && faq.category.includes('MLBB')) ||
-        (category === 'PS5 FOOTBALL 1v1' && faq.category.includes('PS5')) ||
-        (category === 'REGISTRATION & NRC' && faq.category.includes('REGISTRATION')) ||
-        (category === 'SCHEDULE & DISPUTES' && faq.category.includes('DISPUTES'))
-      const q = query.trim().toLowerCase()
-      const qOk =
-        !q ||
-        faq.question.toLowerCase().includes(q) ||
-        faq.answer.toLowerCase().includes(q)
-      return catOk && qOk
-    })
-  }, [category, query])
 
   return (
     <>
@@ -64,62 +32,16 @@ export function RulesPage() {
             workflows for YFD Days Season 4.
           </p>
         </div>
-
-        <form
-          className="mt-8 flex flex-col gap-3 border border-border bg-chassis p-3 sm:flex-row"
-          onSubmit={(e) => e.preventDefault()}
-        >
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search rules, registration, disconnect protocols…"
-            aria-label="Search FAQ"
-            className="flex-1"
-          />
-          <Button type="submit">Find</Button>
-        </form>
-        <div className="mt-3 flex flex-wrap gap-3 text-sm text-muted">
-          <span className="label-code">Popular:</span>
-          {['#Corporate Eligibility', '#Disconnect Policy', '#Anti-Cheat V4'].map(
-            (tag) => (
-              <button
-                key={tag}
-                type="button"
-                className="text-cyan hover:underline"
-                onClick={() => setQuery(tag.replace('#', ''))}
-              >
-                {tag}
-              </button>
-            ),
-          )}
-        </div>
       </div>
 
       <div className="mx-auto grid max-w-[1280px] gap-8 px-5 pb-16 md:px-12 lg:grid-cols-[1fr_320px]">
         <div>
-          <div className="mb-4 flex flex-wrap gap-2">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => setCategory(cat)}
-                className={[
-                  'border px-3 py-2 label-code transition-colors',
-                  category === cat
-                    ? 'border-cyan bg-cyan text-ground'
-                    : 'border-border bg-chassis text-muted hover:text-cyan',
-                ].join(' ')}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
           <p className="mb-4 label-code text-muted">
-            Showing {filtered.length} of {FAQS.length} arbitration articles
+            Showing {FAQS.length} arbitration articles
           </p>
 
           <div className="space-y-3">
-            {filtered.map((faq) => {
+            {FAQS.map((faq) => {
               const open = openId === faq.id
               return (
                 <div
@@ -224,9 +146,6 @@ export function RulesPage() {
           </div>
           <div className="flex flex-wrap gap-3">
             <Button type="button">Open Discord Ticket</Button>
-            <LinkButton to="/register" variant="secondary">
-              Email Arbiter Desk
-            </LinkButton>
           </div>
         </div>
       </section>

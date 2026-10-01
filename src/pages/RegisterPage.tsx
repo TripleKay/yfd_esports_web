@@ -32,7 +32,7 @@ type SoloForm = {
   employeeId: string
   nrc: string
   email: string
-  dualsenseProfile: string
+  phone: string
 }
 
 const initialTeam: TeamForm = {
@@ -56,7 +56,7 @@ const initialSolo: SoloForm = {
   employeeId: 'NX-49001',
   nrc: '12/XYZ(N)778899',
   email: 'alex.striker@nexus.corp',
-  dualsenseProfile: 'competitive-v4',
+  phone: '+95 9 876 543 210',
 }
 
 function emptyRosterPlayer(index: number): RosterPlayer {
@@ -135,6 +135,42 @@ function collectMlbbRosterValidation(
   return { messages, incompletePlayerIds }
 }
 
+function collectTeamIdentityIssues(team: TeamForm): string[] {
+  const missing: string[] = []
+  if (!team.teamName.trim()) missing.push('Team Name')
+  if (!team.teamTag.trim()) missing.push('Team Tag (Acronym)')
+  if (team.organization === ORGANIZATION_OTHER && !team.organizationOther.trim()) {
+    missing.push('Organization Name')
+  }
+  if (!team.discordId.trim()) missing.push('Discord ID / Tag')
+  return missing.map((field) => `${field} is required.`)
+}
+
+function collectSoloRegistrationIssues(solo: SoloForm): string[] {
+  const missing: string[] = []
+  if (!solo.fullName.trim()) missing.push('Full Legal Name')
+  if (!solo.psnId.trim()) missing.push('PSN ID')
+  if (!solo.employeeId.trim()) missing.push('Corporate Employee ID')
+  if (!solo.nrc.trim()) missing.push('National Reg. Card (NRC / ID)')
+  if (!solo.email.trim()) missing.push('Corporate Email')
+  if (!solo.phone.trim()) missing.push('Phone Number')
+  return missing.map((field) => `${field} is required.`)
+}
+
+function collectComplianceIssues(
+  employeeCertified: boolean,
+  rulesAccepted: boolean,
+): string[] {
+  const issues: string[] = []
+  if (!employeeCertified) {
+    issues.push('Confirm employee / contractor certification (section 04).')
+  }
+  if (!rulesAccepted) {
+    issues.push('Accept the Official Rulebook and policies (section 04).')
+  }
+  return issues
+}
+
 export function RegisterPage() {
   const [params] = useSearchParams()
   const [division, setDivision] = useState<Exclude<GameTitle, 'all'> | null>(() =>
@@ -151,10 +187,16 @@ export function RegisterPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [rosterAlertMessages, setRosterAlertMessages] = useState<string[]>([])
+  const [identityAlertMessages, setIdentityAlertMessages] = useState<string[]>([])
+  const [soloAlertMessages, setSoloAlertMessages] = useState<string[]>([])
+  const [complianceAlertMessages, setComplianceAlertMessages] = useState<string[]>([])
   const [incompleteRosterPlayerIds, setIncompleteRosterPlayerIds] = useState<
     string[]
   >([])
   const rosterSectionRef = useRef<HTMLElement>(null)
+  const identitySectionRef = useRef<HTMLElement>(null)
+  const soloSectionRef = useRef<HTMLElement>(null)
+  const complianceSectionRef = useRef<HTMLElement>(null)
   const divisionSectionRef = useRef<HTMLDivElement>(null)
   const playerCardRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const [referenceId, setReferenceId] = useState<number | null>(null)
@@ -215,6 +257,25 @@ export function RegisterPage() {
     setIncompleteRosterPlayerIds([])
   }
 
+  function clearIdentityValidation() {
+    setIdentityAlertMessages([])
+  }
+
+  function clearSoloValidation() {
+    setSoloAlertMessages([])
+  }
+
+  function clearComplianceValidation() {
+    setComplianceAlertMessages([])
+  }
+
+  function clearAllFormValidation() {
+    clearRosterValidation()
+    clearIdentityValidation()
+    clearSoloValidation()
+    clearComplianceValidation()
+  }
+
   function updatePlayer(id: string, key: keyof RosterPlayer, value: string) {
     setRoster((prev) =>
       prev.map((p) => (p.id === id ? { ...p, [key]: value } : p)),
@@ -259,20 +320,53 @@ export function RegisterPage() {
     }
 
     const form = e.currentTarget
-    if (!form.reportValidity()) {
-      setError('Please complete all required fields marked with *.')
-      return
+    const identityIssues = collectTeamIdentityIssues(team)
+    const soloIssues =
+      division === 'ps5' ? collectSoloRegistrationIssues(solo) : []
+    const complianceIssues = collectComplianceIssues(
+      employeeCertified,
+      rulesAccepted,
+    )
+    let rosterIssues: string[] = []
+    let incompletePlayerIds: string[] = []
+    if (division === 'mlbb') {
+      const rosterResult = collectMlbbRosterValidation(roster, captainPlayerId)
+      rosterIssues = rosterResult.messages
+      incompletePlayerIds = rosterResult.incompletePlayerIds
     }
 
-    if (division === 'mlbb') {
-      const { messages, incompletePlayerIds } = collectMlbbRosterValidation(
-        roster,
-        captainPlayerId,
-      )
-      if (messages.length > 0) {
-        setRosterAlertMessages(messages)
-        setIncompleteRosterPlayerIds(incompletePlayerIds)
-        setError(messages[0])
+    const htmlValid = form.reportValidity()
+    const hasValidationErrors =
+      !htmlValid ||
+      identityIssues.length > 0 ||
+      soloIssues.length > 0 ||
+      complianceIssues.length > 0 ||
+      rosterIssues.length > 0
+
+    if (hasValidationErrors) {
+      setIdentityAlertMessages(identityIssues)
+      setSoloAlertMessages(soloIssues)
+      setComplianceAlertMessages(complianceIssues)
+      setRosterAlertMessages(rosterIssues)
+      setIncompleteRosterPlayerIds(incompletePlayerIds)
+
+      const firstMessage =
+        identityIssues[0] ??
+        soloIssues[0] ??
+        rosterIssues[0] ??
+        complianceIssues[0] ??
+        'Please complete all required fields marked with *.'
+      setError(firstMessage)
+
+      if (!htmlValid) {
+        form.reportValidity()
+      }
+
+      if (identityIssues.length > 0) {
+        identitySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      } else if (soloIssues.length > 0) {
+        soloSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      } else if (rosterIssues.length > 0) {
         rosterSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
         const scrollTarget =
           incompletePlayerIds[0] ??
@@ -285,11 +379,13 @@ export function RegisterPage() {
             })
           }, 200)
         }
-        return
+      } else if (complianceIssues.length > 0) {
+        complianceSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }
-      clearRosterValidation()
+      return
     }
 
+    clearAllFormValidation()
     setSubmitting(true)
     setError(null)
 
@@ -325,7 +421,6 @@ export function RegisterPage() {
         ),
       )
     } else {
-      formData.set('dualsense_profile', solo.dualsenseProfile)
       formData.set(
         'players',
         JSON.stringify([
@@ -336,6 +431,7 @@ export function RegisterPage() {
             employee_id: solo.employeeId,
             game_id: solo.psnId,
             email: solo.email,
+            phone: solo.phone,
           },
         ]),
       )
@@ -498,19 +594,44 @@ export function RegisterPage() {
         </div>
       ) : accepting && division ? (
         <form onSubmit={(event) => void onSubmit(event)} className="space-y-8">
-          <section className="border border-border bg-chassis p-5 md:p-6">
+          <section
+            ref={identitySectionRef}
+            className={`border bg-chassis p-5 md:p-6 ${
+              identityAlertMessages.length > 0
+                ? 'border-critical/60 ring-1 ring-critical/30'
+                : 'border-border'
+            }`}
+          >
             <h2 className="font-display text-xl font-semibold">
               02 · Team Identity & Contact
             </h2>
             <p className="mt-1 text-sm text-muted">
               Primary organization affiliation and roster meta identifiers for{' '}
-              {selected?.title ?? 'your division'}.
+              {selected?.title ?? 'your division'}. Fields marked{' '}
+              <span className="text-cyan">*</span> are required.
             </p>
+            {identityAlertMessages.length > 0 ? (
+              <div
+                role="alert"
+                className="mt-4 border border-critical/40 bg-critical/10 px-4 py-3 text-sm text-critical"
+              >
+                <p className="label-code text-critical">Section incomplete</p>
+                <ul className="mt-2 list-disc space-y-1 pl-5">
+                  {identityAlertMessages.map((message) => (
+                    <li key={message}>{message}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
             <div className="mt-6 grid gap-4 md:grid-cols-2">
               <Field label="Team Name" required>
                 <Input
                   value={team.teamName}
-                  onChange={(e) => setTeam({ ...team, teamName: e.target.value })}
+                  onChange={(e) => {
+                    setTeam({ ...team, teamName: e.target.value })
+                    clearIdentityValidation()
+                    setError(null)
+                  }}
                   required
                 />
               </Field>
@@ -518,12 +639,14 @@ export function RegisterPage() {
                 <Input
                   value={team.teamTag}
                   maxLength={4}
-                  onChange={(e) =>
+                  onChange={(e) => {
                     setTeam({
                       ...team,
                       teamTag: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''),
                     })
-                  }
+                    clearIdentityValidation()
+                    setError(null)
+                  }}
                   required
                 />
               </Field>
@@ -538,6 +661,8 @@ export function RegisterPage() {
                       organizationOther:
                         organization === ORGANIZATION_OTHER ? team.organizationOther : '',
                     })
+                    clearIdentityValidation()
+                    setError(null)
                   }}
                   required
                 >
@@ -553,9 +678,11 @@ export function RegisterPage() {
                 <Field label="Organization Name" required>
                   <Input
                     value={team.organizationOther}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setTeam({ ...team, organizationOther: e.target.value })
-                    }
+                      clearIdentityValidation()
+                      setError(null)
+                    }}
                     placeholder="Enter your organization / entity name"
                     required
                   />
@@ -564,7 +691,11 @@ export function RegisterPage() {
               <Field label="Discord ID / Tag" required>
                 <Input
                   value={team.discordId}
-                  onChange={(e) => setTeam({ ...team, discordId: e.target.value })}
+                  onChange={(e) => {
+                    setTeam({ ...team, discordId: e.target.value })
+                    clearIdentityValidation()
+                    setError(null)
+                  }}
                   required
                 />
               </Field>
@@ -773,36 +904,76 @@ export function RegisterPage() {
               </div>
             </section>
           ) : (
-            <section className="border border-border bg-chassis p-5 md:p-6">
+            <section
+              ref={soloSectionRef}
+              className={`border bg-chassis p-5 md:p-6 ${
+                soloAlertMessages.length > 0
+                  ? 'border-critical/60 ring-1 ring-critical/30'
+                  : 'border-border'
+              }`}
+            >
               <h2 className="font-display text-xl font-semibold">
                 03 · Solo Gladiator Registration (PS5 1v1)
               </h2>
+              <p className="mt-1 text-sm text-muted">
+                All player details marked <span className="text-cyan">*</span> are
+                required before you can confirm registration.
+              </p>
+              {soloAlertMessages.length > 0 ? (
+                <div
+                  role="alert"
+                  className="mt-4 border border-critical/40 bg-critical/10 px-4 py-3 text-sm text-critical"
+                >
+                  <p className="label-code text-critical">Section incomplete</p>
+                  <ul className="mt-2 list-disc space-y-1 pl-5">
+                    {soloAlertMessages.map((message) => (
+                      <li key={message}>{message}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
               <div className="mt-6 grid gap-4 md:grid-cols-2">
                 <Field label="Full Legal Name" required>
                   <Input
                     value={solo.fullName}
-                    onChange={(e) => setSolo({ ...solo, fullName: e.target.value })}
+                    onChange={(e) => {
+                      setSolo({ ...solo, fullName: e.target.value })
+                      clearSoloValidation()
+                      setError(null)
+                    }}
                     required
                   />
                 </Field>
                 <Field label="PSN ID" required>
                   <Input
                     value={solo.psnId}
-                    onChange={(e) => setSolo({ ...solo, psnId: e.target.value })}
+                    onChange={(e) => {
+                      setSolo({ ...solo, psnId: e.target.value })
+                      clearSoloValidation()
+                      setError(null)
+                    }}
                     required
                   />
                 </Field>
                 <Field label="Corporate Employee ID" required>
                   <Input
                     value={solo.employeeId}
-                    onChange={(e) => setSolo({ ...solo, employeeId: e.target.value })}
+                    onChange={(e) => {
+                      setSolo({ ...solo, employeeId: e.target.value })
+                      clearSoloValidation()
+                      setError(null)
+                    }}
                     required
                   />
                 </Field>
                 <Field label="National Reg. Card (NRC / ID)" required>
                   <Input
                     value={solo.nrc}
-                    onChange={(e) => setSolo({ ...solo, nrc: e.target.value })}
+                    onChange={(e) => {
+                      setSolo({ ...solo, nrc: e.target.value })
+                      clearSoloValidation()
+                      setError(null)
+                    }}
                     required
                   />
                 </Field>
@@ -810,29 +981,54 @@ export function RegisterPage() {
                   <Input
                     type="email"
                     value={solo.email}
-                    onChange={(e) => setSolo({ ...solo, email: e.target.value })}
+                    onChange={(e) => {
+                      setSolo({ ...solo, email: e.target.value })
+                      clearSoloValidation()
+                      setError(null)
+                    }}
                     required
                   />
                 </Field>
-                <Field label="Preferred DualSense Profile">
-                  <Select
-                    value={solo.dualsenseProfile}
-                    onChange={(e) =>
-                      setSolo({ ...solo, dualsenseProfile: e.target.value })
-                    }
-                  >
-                    <option value="competitive-v4">Competitive Slider Pack v4</option>
-                    <option value="edge">DualSense Edge Custom</option>
-                  </Select>
+                <Field label="Phone Number" required>
+                  <Input
+                    type="tel"
+                    value={solo.phone}
+                    onChange={(e) => {
+                      setSolo({ ...solo, phone: e.target.value })
+                      clearSoloValidation()
+                      setError(null)
+                    }}
+                    required
+                  />
                 </Field>
               </div>
             </section>
           )}
 
-          <section className="border border-border bg-chassis p-5 md:p-6">
+          <section
+            ref={complianceSectionRef}
+            className={`border bg-chassis p-5 md:p-6 ${
+              complianceAlertMessages.length > 0
+                ? 'border-critical/60 ring-1 ring-critical/30'
+                : 'border-border'
+            }`}
+          >
             <h2 className="font-display text-xl font-semibold">
               04 · Compliance & Verification Certification
             </h2>
+            {complianceAlertMessages.length > 0 ? (
+              <div
+                role="alert"
+                className="mt-4 border border-critical/40 bg-critical/10 px-4 py-3 text-sm text-critical"
+              >
+                <p className="label-code text-critical">Certification required</p>
+                <ul className="mt-2 list-disc space-y-1 pl-5">
+                  {complianceAlertMessages.map((message) => (
+                    <li key={message}>{message}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
             <div className="mt-5 space-y-4 text-sm text-muted">
               <label className="flex items-start gap-3">
                 <input
@@ -840,7 +1036,11 @@ export function RegisterPage() {
                   required
                   className="mt-1 accent-cyan"
                   checked={employeeCertified}
-                  onChange={(e) => setEmployeeCertified(e.target.checked)}
+                  onChange={(e) => {
+                    setEmployeeCertified(e.target.checked)
+                    clearComplianceValidation()
+                    setError(null)
+                  }}
                 />
                 <span>
                   I certify that all registered players are verified corporate
@@ -854,7 +1054,11 @@ export function RegisterPage() {
                   required
                   className="mt-1 accent-cyan"
                   checked={rulesAccepted}
-                  onChange={(e) => setRulesAccepted(e.target.checked)}
+                  onChange={(e) => {
+                    setRulesAccepted(e.target.checked)
+                    clearComplianceValidation()
+                    setError(null)
+                  }}
                 />
                 <span>
                   I accept the Official Rulebook, Anti-Cheat Armored-V4 policy, and
@@ -874,7 +1078,7 @@ export function RegisterPage() {
             <Button
               type="submit"
               className="min-w-[240px]"
-              disabled={submitting || !employeeCertified || !rulesAccepted}
+              disabled={submitting}
             >
               {submitting ? 'Submitting...' : 'Confirm & Lock Registration'}
             </Button>

@@ -117,6 +117,38 @@ function hasFieldErrors(errors: object) {
   return Object.keys(errors).length > 0
 }
 
+function digitsOnly(value: string): string {
+  return value.replace(/\D/g, '')
+}
+
+function isValidPhone(value: string): boolean {
+  return /^\d{7,15}$/.test(value.trim())
+}
+
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
+}
+
+function phoneError(value: string): string | null {
+  if (!value.trim()) {
+    return 'Phone Number is required.'
+  }
+  if (!isValidPhone(value)) {
+    return 'Phone Number must be 7–15 digits only.'
+  }
+  return null
+}
+
+function emailError(value: string, label = 'Email'): string | null {
+  if (!value.trim()) {
+    return `${label} is required.`
+  }
+  if (!isValidEmail(value)) {
+    return `Enter a valid ${label.toLowerCase()}.`
+  }
+  return null
+}
+
 function initialDivisionFromSearch(
   params: URLSearchParams,
 ): Exclude<GameTitle, 'all'> | null {
@@ -160,11 +192,13 @@ function collectSoloRegistrationErrors(solo: SoloForm): SoloErrors {
   if (!solo.nrc.trim()) {
     errors.nrc = 'National Reg. Card (NRC / ID) is required.'
   }
-  if (!solo.email.trim()) {
-    errors.email = 'Corporate Email is required.'
+  const mailError = emailError(solo.email, 'Corporate Email')
+  if (mailError) {
+    errors.email = mailError
   }
-  if (!solo.phone.trim()) {
-    errors.phone = 'Phone Number is required.'
+  const soloPhoneError = phoneError(solo.phone)
+  if (soloPhoneError) {
+    errors.phone = soloPhoneError
   }
   return errors
 }
@@ -183,6 +217,20 @@ function collectMlbbRosterErrors(
     const playerErrors: Partial<Record<RosterFieldKey, string>> = {}
     for (const { key, label } of ROSTER_REQUIRED_FIELDS) {
       const value = player[key]
+      if (key === 'phone') {
+        const error = phoneError(typeof value === 'string' ? value : '')
+        if (error) {
+          playerErrors.phone = error
+        }
+        continue
+      }
+      if (key === 'corporateEmail') {
+        const error = emailError(typeof value === 'string' ? value : '', 'Mail')
+        if (error) {
+          playerErrors.corporateEmail = error
+        }
+        continue
+      }
       if (typeof value !== 'string' || !value.trim()) {
         playerErrors[key] = `${label} is required.`
       }
@@ -422,8 +470,9 @@ export function RegisterPage() {
   }
 
   function updatePlayer(id: string, key: RosterFieldKey, value: string) {
+    const nextValue = key === 'phone' ? digitsOnly(value) : value
     setRoster((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, [key]: value } : p)),
+      prev.map((p) => (p.id === id ? { ...p, [key]: nextValue } : p)),
     )
     clearRosterFieldError(id, key)
     setError(null)
@@ -654,6 +703,11 @@ export function RegisterPage() {
     }
 
     if (division === 'mlbb') {
+      const captainEmail =
+        roster
+          .find((player) => player.id === captainPlayerId)
+          ?.corporateEmail.trim() ?? ''
+      formData.set('captain_email', captainEmail)
       formData.set(
         'players',
         JSON.stringify(
@@ -672,6 +726,7 @@ export function RegisterPage() {
         ),
       )
     } else {
+      formData.set('captain_email', solo.email.trim())
       formData.set(
         'players',
         JSON.stringify([
@@ -683,6 +738,7 @@ export function RegisterPage() {
             game_id: solo.psnId,
             email: solo.email,
             phone: solo.phone,
+            is_captain: true,
           },
         ]),
       )
@@ -1194,11 +1250,14 @@ export function RegisterPage() {
                         >
                           <Input
                             type="tel"
+                            inputMode="numeric"
+                            pattern="[0-9]{7,15}"
+                            maxLength={15}
                             value={player.phone}
                             onChange={(e) =>
                               updatePlayer(player.id, 'phone', e.target.value)
                             }
-                            placeholder="Phone number"
+                            placeholder="Digits only"
                             required
                           />
                         </Field>
@@ -1434,9 +1493,12 @@ export function RegisterPage() {
                 <Field label="Phone Number" required error={soloErrors.phone}>
                   <Input
                     type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]{7,15}"
+                    maxLength={15}
                     value={solo.phone}
                     onChange={(e) => {
-                      setSolo({ ...solo, phone: e.target.value })
+                      setSolo({ ...solo, phone: digitsOnly(e.target.value) })
                       setSoloErrors((prev) => {
                         if (!prev.phone) return prev
                         const next = { ...prev }
@@ -1445,7 +1507,7 @@ export function RegisterPage() {
                       })
                       setError(null)
                     }}
-                    placeholder="Phone number"
+                    placeholder="Digits only"
                     required
                   />
                 </Field>

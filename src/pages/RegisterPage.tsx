@@ -36,11 +36,11 @@ type SoloForm = {
 }
 
 const initialTeam: TeamForm = {
-  teamName: 'Nexus Prime',
-  teamTag: 'NXP',
+  teamName: '',
+  teamTag: '',
   organization: ORGANIZATIONS[0],
   organizationOther: '',
-  discordId: 'nexus_captain#2048',
+  discordId: '',
 }
 
 function resolvedOrganization(team: TeamForm): string {
@@ -171,6 +171,32 @@ function collectComplianceIssues(
   return issues
 }
 
+type RegistrationStep = 'identity' | 'players' | 'compliance'
+
+function validateFieldsInContainer(container: HTMLElement | null): boolean {
+  if (!container) {
+    return false
+  }
+
+  const fields = container.querySelectorAll('input, select, textarea')
+  for (const field of fields) {
+    if (
+      field instanceof HTMLInputElement ||
+      field instanceof HTMLSelectElement ||
+      field instanceof HTMLTextAreaElement
+    ) {
+      if (field.type === 'file') {
+        continue
+      }
+      if (!field.checkValidity()) {
+        field.reportValidity()
+        return false
+      }
+    }
+  }
+  return true
+}
+
 export function RegisterPage() {
   const [params] = useSearchParams()
   const [division, setDivision] = useState<Exclude<GameTitle, 'all'> | null>(() =>
@@ -205,6 +231,8 @@ export function RegisterPage() {
   const [settingsError, setSettingsError] = useState<string | null>(null)
   const [mlbbMinPlayers, setMlbbMinPlayers] = useState(DEFAULT_MLBB_MIN_PLAYERS)
   const [mlbbMaxPlayers, setMlbbMaxPlayers] = useState(DEFAULT_MLBB_MAX_PLAYERS)
+  const [registrationStep, setRegistrationStep] =
+    useState<RegistrationStep>('identity')
 
   const selected = useMemo(
     () => (division ? DIVISIONS.find((d) => d.id === division) ?? null : null),
@@ -276,6 +304,77 @@ export function RegisterPage() {
     clearComplianceValidation()
   }
 
+  useEffect(() => {
+    setRegistrationStep('identity')
+    clearAllFormValidation()
+    setError(null)
+  }, [division])
+
+  function goToPlayersStep() {
+    const issues = collectTeamIdentityIssues(team)
+    if (issues.length > 0) {
+      setIdentityAlertMessages(issues)
+      setError(issues[0])
+      identitySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      return
+    }
+    if (!validateFieldsInContainer(identitySectionRef.current)) {
+      setError('Please complete all required fields marked with *.')
+      return
+    }
+    clearIdentityValidation()
+    setError(null)
+    setRegistrationStep('players')
+    window.setTimeout(() => {
+      const target =
+        division === 'mlbb' ? rosterSectionRef.current : soloSectionRef.current
+      target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 150)
+  }
+
+  function goToComplianceStep() {
+    const playersSection =
+      division === 'mlbb' ? rosterSectionRef.current : soloSectionRef.current
+    let messages: string[] = []
+    let incompletePlayerIds: string[] = []
+
+    if (division === 'mlbb') {
+      const rosterResult = collectMlbbRosterValidation(roster, captainPlayerId)
+      messages = rosterResult.messages
+      incompletePlayerIds = rosterResult.incompletePlayerIds
+      setRosterAlertMessages(messages)
+      setIncompleteRosterPlayerIds(incompletePlayerIds)
+      setSoloAlertMessages([])
+    } else {
+      messages = collectSoloRegistrationIssues(solo)
+      setSoloAlertMessages(messages)
+      setRosterAlertMessages([])
+      setIncompleteRosterPlayerIds([])
+    }
+
+    if (messages.length > 0 || !validateFieldsInContainer(playersSection)) {
+      setError(messages[0] ?? 'Please complete all required fields marked with *.')
+      playersSection?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      if (division === 'mlbb' && incompletePlayerIds[0]) {
+        window.setTimeout(() => {
+          playerCardRefs.current[incompletePlayerIds[0]!]?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+          })
+        }, 200)
+      }
+      return
+    }
+
+    clearRosterValidation()
+    clearSoloValidation()
+    setError(null)
+    setRegistrationStep('compliance')
+    window.setTimeout(() => {
+      complianceSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 150)
+  }
+
   function updatePlayer(id: string, key: keyof RosterPlayer, value: string) {
     setRoster((prev) =>
       prev.map((p) => (p.id === id ? { ...p, [key]: value } : p)),
@@ -316,6 +415,18 @@ export function RegisterPage() {
     if (!division) {
       setError('Choose one competition format (MLBB squad or PS5 solo) to continue.')
       divisionSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      return
+    }
+
+    if (registrationStep !== 'compliance') {
+      setError('Use Next step to complete each section before confirming registration.')
+      if (registrationStep === 'identity') {
+        identitySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      } else {
+        const target =
+          division === 'mlbb' ? rosterSectionRef.current : soloSectionRef.current
+        target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
       return
     }
 
@@ -579,6 +690,7 @@ export function RegisterPage() {
               setSubmitted(false)
               setReferenceId(null)
               setDivision(null)
+              setRegistrationStep('identity')
             }}
           >
             Submit Another Entry
@@ -639,6 +751,7 @@ export function RegisterPage() {
                 <Input
                   value={team.teamTag}
                   maxLength={4}
+                  minLength={2}
                   onChange={(e) => {
                     setTeam({
                       ...team,
@@ -707,12 +820,47 @@ export function RegisterPage() {
                 />
               </Field>
             </div>
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
+              <p className="text-sm text-muted">
+                {registrationStep === 'identity'
+                  ? 'Fill every field marked * before continuing.'
+                  : 'Team identity complete. You can go back to edit.'}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {registrationStep !== 'identity' ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    clip={false}
+                    onClick={() => {
+                      setRegistrationStep('identity')
+                      identitySectionRef.current?.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start',
+                      })
+                    }}
+                  >
+                    Back
+                  </Button>
+                ) : null}
+                {registrationStep === 'identity' ? (
+                  <Button type="button" clip={false} onClick={goToPlayersStep}>
+                    Next step:{' '}
+                    {division === 'mlbb' ? 'Roster registration' : 'Solo player'} →
+                  </Button>
+                ) : null}
+              </div>
+            </div>
           </section>
 
-          {division === 'mlbb' ? (
+          {registrationStep === 'players' && division === 'mlbb' ? (
             <section
               ref={rosterSectionRef}
-              className="border border-border bg-chassis p-5 md:p-6"
+              className={`border bg-chassis p-5 md:p-6 ${
+                rosterAlertMessages.length > 0
+                  ? 'border-critical/60 ring-1 ring-critical/30'
+                  : 'border-border'
+              }`}
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -902,8 +1050,31 @@ export function RegisterPage() {
                   </div>
                 ))}
               </div>
+              {registrationStep === 'players' ? (
+                <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
+                  <p className="text-sm text-muted">
+                    Complete all roster fields and select one Team Captain before
+                    continuing.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      clip={false}
+                      onClick={() => setRegistrationStep('identity')}
+                    >
+                      Back
+                    </Button>
+                    <Button type="button" clip={false} onClick={goToComplianceStep}>
+                      Next step: Certification →
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
             </section>
-          ) : (
+          ) : null}
+
+          {registrationStep === 'players' && division === 'ps5' ? (
             <section
               ref={soloSectionRef}
               className={`border bg-chassis p-5 md:p-6 ${
@@ -1002,9 +1173,30 @@ export function RegisterPage() {
                   />
                 </Field>
               </div>
+              {registrationStep === 'players' ? (
+                <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
+                  <p className="text-sm text-muted">
+                    Fill every solo player field marked * before continuing.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      clip={false}
+                      onClick={() => setRegistrationStep('identity')}
+                    >
+                      Back
+                    </Button>
+                    <Button type="button" clip={false} onClick={goToComplianceStep}>
+                      Next step: Certification →
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
             </section>
-          )}
+          ) : null}
 
+          {registrationStep === 'compliance' ? (
           <section
             ref={complianceSectionRef}
             className={`border bg-chassis p-5 md:p-6 ${
@@ -1066,7 +1258,25 @@ export function RegisterPage() {
                 </span>
               </label>
             </div>
+            <div className="mt-6 flex flex-wrap gap-2 border-t border-border pt-5">
+              <Button
+                type="button"
+                variant="secondary"
+                clip={false}
+                onClick={() => {
+                  setRegistrationStep('players')
+                  const target =
+                    division === 'mlbb'
+                      ? rosterSectionRef.current
+                      : soloSectionRef.current
+                  target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }}
+              >
+                Back
+              </Button>
+            </div>
           </section>
+          ) : null}
 
           {error ? (
             <p className="border border-critical/40 bg-critical/10 px-4 py-3 text-sm text-critical">
@@ -1074,6 +1284,7 @@ export function RegisterPage() {
             </p>
           ) : null}
 
+          {registrationStep === 'compliance' ? (
           <div className="flex flex-wrap gap-3">
             <Button
               type="submit"
@@ -1086,6 +1297,7 @@ export function RegisterPage() {
               Save Draft
             </Button>
           </div>
+          ) : null}
         </form>
       ) : null}
     </div>

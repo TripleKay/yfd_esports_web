@@ -9,6 +9,7 @@ import {
   submitRegistration,
   type RegistrationSettings,
 } from '../api/registrations'
+import { CREST_ACCEPT, crestFileError } from '../lib/crestUpload'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Field, Input, Select } from '../components/ui/Field'
@@ -37,7 +38,10 @@ type SoloForm = {
 }
 
 type IdentityErrors = Partial<
-  Record<'teamName' | 'teamTag' | 'organizationId' | 'discordId', string>
+  Record<
+    'teamName' | 'teamTag' | 'organizationId' | 'discordId' | 'crest',
+    string
+  >
 >
 type SoloErrors = Partial<
   Record<
@@ -159,7 +163,10 @@ function initialDivisionFromSearch(
   return null
 }
 
-function collectTeamIdentityErrors(team: TeamForm): IdentityErrors {
+function collectTeamIdentityErrors(
+  team: TeamForm,
+  crest: File | null,
+): IdentityErrors {
   const errors: IdentityErrors = {}
   if (!team.teamName.trim()) {
     errors.teamName = 'Team name is required.'
@@ -174,6 +181,10 @@ function collectTeamIdentityErrors(team: TeamForm): IdentityErrors {
   }
   if (!team.discordId.trim()) {
     errors.discordId = 'Discord ID / Tag is required.'
+  }
+  const crestError = crestFileError(crest)
+  if (crestError) {
+    errors.crest = crestError
   }
   return errors
 }
@@ -384,7 +395,7 @@ export function RegisterPage() {
   }, [division])
 
   function goToPlayersStep() {
-    const nextIdentityErrors = collectTeamIdentityErrors(team)
+    const nextIdentityErrors = collectTeamIdentityErrors(team, crest)
     setIdentityErrors(nextIdentityErrors)
     if (hasFieldErrors(nextIdentityErrors)) {
       identitySectionRef.current?.scrollIntoView({
@@ -534,6 +545,9 @@ export function RegisterPage() {
         case 'discord_id':
           nextIdentity.discordId = message
           break
+        case 'crest':
+          nextIdentity.crest = message
+          break
         case 'employee_certified':
           nextCompliance.employeeCertified = message
           break
@@ -621,7 +635,7 @@ export function RegisterPage() {
       return
     }
 
-    const nextIdentityErrors = collectTeamIdentityErrors(team)
+    const nextIdentityErrors = collectTeamIdentityErrors(team, crest)
     const nextSoloErrors =
       division === 'ps5' ? collectSoloRegistrationErrors(solo) : {}
     const nextComplianceErrors = collectComplianceErrors(
@@ -1044,12 +1058,30 @@ export function RegisterPage() {
               </Field>
               <Field
                 label="Team Crest / Avatar"
-                hint="Min. 512×512 transparent PNG"
+                hint="Optional. PNG or JPG only, max 5 MB."
+                error={identityErrors.crest}
               >
                 <Input
                   type="file"
-                  accept="image/png,image/svg+xml"
-                  onChange={(e) => setCrest(e.target.files?.[0] ?? null)}
+                  accept={CREST_ACCEPT}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null
+                    const error = crestFileError(file)
+                    setCrest(error ? null : file)
+                    setIdentityErrors((prev) => {
+                      const next = { ...prev }
+                      if (error) {
+                        next.crest = error
+                      } else {
+                        delete next.crest
+                      }
+                      return next
+                    })
+                    if (error) {
+                      e.target.value = ''
+                    }
+                    setError(null)
+                  }}
                   className={[
                     'file:mr-3 file:border-0 file:bg-transparent file:p-0 file:text-sm file:font-medium',
                     crest

@@ -27,7 +27,7 @@ export function IconAction({
       type="button"
       aria-label={label}
       className={[
-        'group relative inline-flex size-9 items-center justify-center border transition-all duration-200 hover:scale-[1.04] active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40',
+        'group relative inline-flex size-9 cursor-pointer items-center justify-center border transition-all duration-200 hover:scale-[1.04] active:scale-[0.96] disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-40',
         tones[tone],
         className,
       ].join(' ')}

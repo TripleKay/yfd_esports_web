@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { fetchNews } from '../api/news'
 import { NewsCard } from '../components/NewsCard'
 import { Badge } from '../components/ui/Badge'
-import { Button } from '../components/ui/Button'
+import { LinkButton } from '../components/ui/Button'
 import { Input } from '../components/ui/Field'
 import type { NewsArticle, NewsCategory } from '../types'
 
@@ -75,7 +76,8 @@ export function NewsPage() {
             HOME // NEWS // ANNOUNCEMENTS & INTEL
           </p>
           <p className="label-code text-muted">
-            FEED STATUS: {loading ? 'SYNCING…' : error ? 'DEGRADED' : 'SYNCHRONIZED (LIVE)'}
+            FEED STATUS:{' '}
+            {loading ? 'SYNCING…' : error ? 'DEGRADED' : 'SYNCHRONIZED (LIVE)'}
           </p>
         </div>
 
@@ -125,7 +127,10 @@ export function NewsPage() {
       {featured ? (
         <section className="mx-auto max-w-[1280px] px-5 pb-10 md:px-12">
           <article className="grid overflow-hidden border border-border bg-chassis lg:grid-cols-2">
-            <div className="relative min-h-[240px]">
+            <Link
+              to={`/news/${featured.id}`}
+              className="relative min-h-[240px] block"
+            >
               {featured.image ? (
                 <img
                   src={featured.image}
@@ -138,7 +143,7 @@ export function NewsPage() {
                 </div>
               )}
               <div className="absolute inset-0 bg-gradient-to-r from-transparent to-chassis/80 max-lg:bg-gradient-to-t max-lg:from-chassis" />
-            </div>
+            </Link>
             <div className="flex flex-col justify-center p-6 md:p-10">
               <div className="flex flex-wrap gap-2">
                 <Badge tone="violet">★ Featured Headline</Badge>
@@ -146,13 +151,17 @@ export function NewsPage() {
               </div>
               <p className="mt-4 label-code text-muted">{featured.date}</p>
               <h2 className="mt-2 font-display text-2xl font-bold leading-snug md:text-3xl">
-                {featured.title}
+                <Link to={`/news/${featured.id}`} className="hover:text-cyan">
+                  {featured.title}
+                </Link>
               </h2>
               <p className="mt-4 text-sm leading-6 text-muted md:text-base">
                 {featured.excerpt}
               </p>
               <div className="mt-6 flex flex-wrap items-center gap-4">
-                <Button type="button">Read Article →</Button>
+                <LinkButton to={`/news/${featured.id}`}>
+                  Read Article →
+                </LinkButton>
                 <span className="label-code text-muted">
                   {featured.readTime} · BY: {featured.author}
                 </span>

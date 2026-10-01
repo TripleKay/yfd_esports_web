@@ -44,6 +44,7 @@ export function mapNewsArticle(article: ApiNewsArticle): UiNewsArticle {
     id: article.id,
     title: article.title,
     excerpt: article.excerpt,
+    body: article.body,
     category: article.category,
     categoryLabel: article.category_label,
     date: formatDate(article.published_at ?? article.created_at),
@@ -55,7 +56,9 @@ export function mapNewsArticle(article: ApiNewsArticle): UiNewsArticle {
   }
 }
 
-export async function fetchNews(options: FetchNewsOptions = {}): Promise<UiNewsArticle[]> {
+export async function fetchNews(
+  options: FetchNewsOptions = {},
+): Promise<UiNewsArticle[]> {
   const query = new URLSearchParams()
 
   if (options.search?.trim()) {
@@ -75,9 +78,12 @@ export async function fetchNews(options: FetchNewsOptions = {}): Promise<UiNewsA
   }
 
   const suffix = query.toString() ? `?${query}` : ''
-  const response = await fetch(`${import.meta.env.VITE_API_URL}/news${suffix}`, {
-    headers: { Accept: 'application/json' },
-  })
+  const response = await fetch(
+    `${import.meta.env.VITE_API_URL}/news${suffix}`,
+    {
+      headers: { Accept: 'application/json' },
+    },
+  )
 
   const body = (await response.json().catch(() => ({}))) as {
     message?: string
@@ -89,4 +95,24 @@ export async function fetchNews(options: FetchNewsOptions = {}): Promise<UiNewsA
   }
 
   return body.data.map(mapNewsArticle)
+}
+
+export async function fetchNewsArticle(id: string): Promise<UiNewsArticle> {
+  const response = await fetch(`${import.meta.env.VITE_API_URL}/news/${id}`, {
+    headers: { Accept: 'application/json' },
+  })
+
+  const body = (await response.json().catch(() => ({}))) as {
+    message?: string
+    data?: ApiNewsArticle
+  }
+
+  if (!response.ok || !body.data) {
+    throw new ApiError(
+      body.message ?? 'Failed to load article',
+      response.status,
+    )
+  }
+
+  return mapNewsArticle(body.data)
 }

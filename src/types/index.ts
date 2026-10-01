@@ -1,12 +1,6 @@
 export type GameTitle = 'mlbb' | 'ps5' | 'all'
 export type MatchStatus = 'live' | 'upcoming' | 'completed'
-export type NewsCategory =
-  | 'all'
-  | 'mlbb'
-  | 'ps5'
-  | 'info'
-  | 'rules'
-  | 'prize'
+export type NewsCategory = 'all' | 'mlbb' | 'ps5' | 'info' | 'rules' | 'prize'
 
 export interface Team {
   id: string
@@ -52,6 +46,7 @@ export interface NewsArticle {
   id: string
   title: string
   excerpt: string
+  body?: string | null
   category: Exclude<NewsCategory, 'all'>
   categoryLabel: string
   date: string

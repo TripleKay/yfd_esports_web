@@ -4,12 +4,10 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react'
 type Variant = 'primary' | 'secondary' | 'ghost' | 'critical'
 
 const variants: Record<Variant, string> = {
-  primary:
-    'bg-cyan text-ground font-bold hover:glow-cyan hover:brightness-110',
+  primary: 'bg-cyan text-ground font-bold hover:glow-cyan hover:brightness-110',
   secondary:
     'bg-chassis border border-border text-ink hover:border-violet hover:text-cyan',
-  ghost:
-    'bg-transparent border border-cyan/40 text-cyan hover:bg-cyan/10',
+  ghost: 'bg-transparent border border-cyan/40 text-cyan hover:bg-cyan/10',
   critical:
     'bg-critical/15 border border-critical text-critical hover:bg-critical/25',
 }
@@ -30,7 +28,7 @@ export function Button({
   return (
     <button
       className={[
-        'inline-flex items-center justify-center gap-2 px-5 py-2.5 label-tactical transition-all duration-200 disabled:opacity-40 disabled:pointer-events-none',
+        'inline-flex cursor-pointer items-center justify-center gap-2 px-5 py-2.5 label-tactical transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-40 disabled:pointer-events-none',
         clip ? 'clip-cyber-sm' : '',
         variants[variant],
         className,
@@ -61,7 +59,7 @@ export function LinkButton({
     <Link
       to={to}
       className={[
-        'inline-flex items-center justify-center gap-2 px-5 py-2.5 label-tactical transition-all duration-200',
+        'inline-flex cursor-pointer items-center justify-center gap-2 px-5 py-2.5 label-tactical transition-all duration-200',
         clip ? 'clip-cyber-sm' : '',
         variants[variant],
         className,

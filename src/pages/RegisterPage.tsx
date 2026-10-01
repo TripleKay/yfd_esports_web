@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { fetchOrganizations, type Organization } from '../api/organizations'
 import {
+  ApiError,
   fetchRegistrationSettings,
   firstError,
   submitRegistration,
@@ -10,19 +12,18 @@ import {
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Field, Input, Select } from '../components/ui/Field'
-import { DEMO_ROSTER, DIVISIONS, ORGANIZATIONS } from '../data/demo'
+import { IconAction, IconDelete } from '../components/ui/IconAction'
+import { DIVISIONS } from '../data/demo'
 import type { GameTitle, RosterPlayer } from '../types'
 
 const roles = ['JUNGLER', 'MID', 'GOLD', 'ROAM', 'EXP'] as const
 const DEFAULT_MLBB_MIN_PLAYERS = 5
 const DEFAULT_MLBB_MAX_PLAYERS = 7
-const ORGANIZATION_OTHER = 'Other'
 
 type TeamForm = {
   teamName: string
   teamTag: string
-  organization: string
-  organizationOther: string
+  organizationId: string
   discordId: string
 }
 
@@ -35,35 +36,50 @@ type SoloForm = {
   phone: string
 }
 
+type IdentityErrors = Partial<
+  Record<'teamName' | 'teamTag' | 'organizationId' | 'discordId', string>
+>
+type SoloErrors = Partial<
+  Record<
+    'fullName' | 'psnId' | 'employeeId' | 'nrc' | 'email' | 'phone',
+    string
+  >
+>
+type RosterFieldKey =
+  | 'name'
+  | 'nrc'
+  | 'employeeId'
+  | 'phone'
+  | 'corporateEmail'
+  | 'gameUserId'
+  | 'zoneId'
+  | 'role'
+type RosterErrors = Record<string, Partial<Record<RosterFieldKey, string>>>
+type ComplianceErrors = Partial<
+  Record<'employeeCertified' | 'rulesAccepted', string>
+>
+
 const initialTeam: TeamForm = {
   teamName: '',
   teamTag: '',
-  organization: ORGANIZATIONS[0],
-  organizationOther: '',
+  organizationId: '',
   discordId: '',
 }
 
-function resolvedOrganization(team: TeamForm): string {
-  if (team.organization === ORGANIZATION_OTHER) {
-    return team.organizationOther.trim()
-  }
-  return team.organization
-}
-
 const initialSolo: SoloForm = {
-  fullName: 'Alex Striker',
-  psnId: 'STRIKER_9',
-  employeeId: 'NX-49001',
-  nrc: '12/XYZ(N)778899',
-  email: 'alex.striker@nexus.corp',
-  phone: '+95 9 876 543 210',
+  fullName: '',
+  psnId: '',
+  employeeId: '',
+  nrc: '',
+  email: '',
+  phone: '',
 }
 
 function emptyRosterPlayer(index: number): RosterPlayer {
   return {
-    id: `p${index + 1}-${Date.now()}`,
+    id: `p${index + 1}-${Date.now()}-${index}`,
     label: `P${index + 1}`,
-    role: roles[index] ?? 'MID',
+    role: '',
     name: '',
     nrc: '',
     employeeId: '',
@@ -75,6 +91,10 @@ function emptyRosterPlayer(index: number): RosterPlayer {
   }
 }
 
+function createEmptyRoster(count: number): RosterPlayer[] {
+  return Array.from({ length: count }, (_, index) => emptyRosterPlayer(index))
+}
+
 function relabelRoster(players: RosterPlayer[]): RosterPlayer[] {
   return players.map((player, index) => ({
     ...player,
@@ -82,7 +102,7 @@ function relabelRoster(players: RosterPlayer[]): RosterPlayer[] {
   }))
 }
 
-const ROSTER_REQUIRED_FIELDS: { key: keyof RosterPlayer; label: string }[] = [
+const ROSTER_REQUIRED_FIELDS: { key: RosterFieldKey; label: string }[] = [
   { key: 'name', label: 'Full Legal Name' },
   { key: 'nrc', label: 'National Reg. Card (NRC / ID)' },
   { key: 'employeeId', label: 'Corporate Employee ID' },
@@ -90,13 +110,11 @@ const ROSTER_REQUIRED_FIELDS: { key: keyof RosterPlayer; label: string }[] = [
   { key: 'corporateEmail', label: 'Mail' },
   { key: 'gameUserId', label: 'MLBB Game User ID' },
   { key: 'zoneId', label: 'Server / Zone ID' },
+  { key: 'role', label: 'Primary Specialization' },
 ]
 
-function missingRosterFieldLabels(player: RosterPlayer): string[] {
-  return ROSTER_REQUIRED_FIELDS.filter(({ key }) => {
-    const value = player[key]
-    return typeof value !== 'string' || !value.trim()
-  }).map(({ label }) => label)
+function hasFieldErrors(errors: object) {
+  return Object.keys(errors).length > 0
 }
 
 function initialDivisionFromSearch(
@@ -109,100 +127,100 @@ function initialDivisionFromSearch(
   return null
 }
 
-function collectMlbbRosterValidation(
+function collectTeamIdentityErrors(team: TeamForm): IdentityErrors {
+  const errors: IdentityErrors = {}
+  if (!team.teamName.trim()) {
+    errors.teamName = 'Team name is required.'
+  }
+  if (!team.teamTag.trim()) {
+    errors.teamTag = 'Team tag is required.'
+  } else if (team.teamTag.trim().length < 2) {
+    errors.teamTag = 'Team tag must be at least 2 characters.'
+  }
+  if (!team.organizationId.trim()) {
+    errors.organizationId = 'Organization / Entity is required.'
+  }
+  if (!team.discordId.trim()) {
+    errors.discordId = 'Discord ID / Tag is required.'
+  }
+  return errors
+}
+
+function collectSoloRegistrationErrors(solo: SoloForm): SoloErrors {
+  const errors: SoloErrors = {}
+  if (!solo.fullName.trim()) {
+    errors.fullName = 'Full Legal Name is required.'
+  }
+  if (!solo.psnId.trim()) {
+    errors.psnId = 'PSN ID is required.'
+  }
+  if (!solo.employeeId.trim()) {
+    errors.employeeId = 'Corporate Employee ID is required.'
+  }
+  if (!solo.nrc.trim()) {
+    errors.nrc = 'National Reg. Card (NRC / ID) is required.'
+  }
+  if (!solo.email.trim()) {
+    errors.email = 'Corporate Email is required.'
+  }
+  if (!solo.phone.trim()) {
+    errors.phone = 'Phone Number is required.'
+  }
+  return errors
+}
+
+function collectMlbbRosterErrors(
   roster: RosterPlayer[],
   captainPlayerId: string | null,
-): { messages: string[]; incompletePlayerIds: string[] } {
-  const messages: string[] = []
-  const incompletePlayerIds: string[] = []
-
-  if (!captainPlayerId || !roster.some((player) => player.id === captainPlayerId)) {
-    messages.push('Select exactly one Team Captain.')
-  }
+): { fieldErrors: RosterErrors; captainError: string | null } {
+  const fieldErrors: RosterErrors = {}
+  const captainError =
+    !captainPlayerId || !roster.some((player) => player.id === captainPlayerId)
+      ? 'Select exactly one Team Captain.'
+      : null
 
   for (const player of roster) {
-    const missing = missingRosterFieldLabels(player)
-    if (missing.length === 0) {
-      continue
+    const playerErrors: Partial<Record<RosterFieldKey, string>> = {}
+    for (const { key, label } of ROSTER_REQUIRED_FIELDS) {
+      const value = player[key]
+      if (typeof value !== 'string' || !value.trim()) {
+        playerErrors[key] = `${label} is required.`
+      }
     }
-    incompletePlayerIds.push(player.id)
-    const who = player.name.trim()
-      ? `${player.label} (${player.name})`
-      : player.label
-    messages.push(`${who}: ${missing.join(', ')}`)
+    if (hasFieldErrors(playerErrors)) {
+      fieldErrors[player.id] = playerErrors
+    }
   }
 
-  return { messages, incompletePlayerIds }
+  return { fieldErrors, captainError }
 }
 
-function collectTeamIdentityIssues(team: TeamForm): string[] {
-  const missing: string[] = []
-  if (!team.teamName.trim()) missing.push('Team Name')
-  if (!team.teamTag.trim()) missing.push('Team Tag (Acronym)')
-  if (team.organization === ORGANIZATION_OTHER && !team.organizationOther.trim()) {
-    missing.push('Organization Name')
-  }
-  if (!team.discordId.trim()) missing.push('Discord ID / Tag')
-  return missing.map((field) => `${field} is required.`)
-}
-
-function collectSoloRegistrationIssues(solo: SoloForm): string[] {
-  const missing: string[] = []
-  if (!solo.fullName.trim()) missing.push('Full Legal Name')
-  if (!solo.psnId.trim()) missing.push('PSN ID')
-  if (!solo.employeeId.trim()) missing.push('Corporate Employee ID')
-  if (!solo.nrc.trim()) missing.push('National Reg. Card (NRC / ID)')
-  if (!solo.email.trim()) missing.push('Corporate Email')
-  if (!solo.phone.trim()) missing.push('Phone Number')
-  return missing.map((field) => `${field} is required.`)
-}
-
-function collectComplianceIssues(
+function collectComplianceErrors(
   employeeCertified: boolean,
   rulesAccepted: boolean,
-): string[] {
-  const issues: string[] = []
+): ComplianceErrors {
+  const errors: ComplianceErrors = {}
   if (!employeeCertified) {
-    issues.push('Confirm employee / contractor certification (section 04).')
+    errors.employeeCertified =
+      'Confirm employee / contractor certification (section 04).'
   }
   if (!rulesAccepted) {
-    issues.push('Accept the Official Rulebook and policies (section 04).')
+    errors.rulesAccepted =
+      'Accept the Official Rulebook and policies (section 04).'
   }
-  return issues
+  return errors
 }
 
 type RegistrationStep = 'identity' | 'players' | 'compliance'
 
-function validateFieldsInContainer(container: HTMLElement | null): boolean {
-  if (!container) {
-    return false
-  }
-
-  const fields = container.querySelectorAll('input, select, textarea')
-  for (const field of fields) {
-    if (
-      field instanceof HTMLInputElement ||
-      field instanceof HTMLSelectElement ||
-      field instanceof HTMLTextAreaElement
-    ) {
-      if (field.type === 'file') {
-        continue
-      }
-      if (!field.checkValidity()) {
-        field.reportValidity()
-        return false
-      }
-    }
-  }
-  return true
-}
-
 export function RegisterPage() {
   const [params] = useSearchParams()
-  const [division, setDivision] = useState<Exclude<GameTitle, 'all'> | null>(() =>
-    initialDivisionFromSearch(params),
+  const [division, setDivision] = useState<Exclude<GameTitle, 'all'> | null>(
+    () => initialDivisionFromSearch(params),
   )
-  const [roster, setRoster] = useState<RosterPlayer[]>(DEMO_ROSTER)
+  const [roster, setRoster] = useState<RosterPlayer[]>(() =>
+    createEmptyRoster(DEFAULT_MLBB_MIN_PLAYERS),
+  )
   const [captainPlayerId, setCaptainPlayerId] = useState<string | null>(null)
   const [team, setTeam] = useState(initialTeam)
   const [solo, setSolo] = useState(initialSolo)
@@ -212,13 +230,11 @@ export function RegisterPage() {
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [rosterAlertMessages, setRosterAlertMessages] = useState<string[]>([])
-  const [identityAlertMessages, setIdentityAlertMessages] = useState<string[]>([])
-  const [soloAlertMessages, setSoloAlertMessages] = useState<string[]>([])
-  const [complianceAlertMessages, setComplianceAlertMessages] = useState<string[]>([])
-  const [incompleteRosterPlayerIds, setIncompleteRosterPlayerIds] = useState<
-    string[]
-  >([])
+  const [identityErrors, setIdentityErrors] = useState<IdentityErrors>({})
+  const [soloErrors, setSoloErrors] = useState<SoloErrors>({})
+  const [rosterErrors, setRosterErrors] = useState<RosterErrors>({})
+  const [captainError, setCaptainError] = useState<string | null>(null)
+  const [complianceErrors, setComplianceErrors] = useState<ComplianceErrors>({})
   const rosterSectionRef = useRef<HTMLElement>(null)
   const identitySectionRef = useRef<HTMLElement>(null)
   const soloSectionRef = useRef<HTMLElement>(null)
@@ -229,13 +245,19 @@ export function RegisterPage() {
   const [settings, setSettings] = useState<RegistrationSettings | null>(null)
   const [settingsLoading, setSettingsLoading] = useState(true)
   const [settingsError, setSettingsError] = useState<string | null>(null)
+  const [organizations, setOrganizations] = useState<Organization[]>([])
+  const [organizationsLoading, setOrganizationsLoading] = useState(true)
+  const [organizationsError, setOrganizationsError] = useState<string | null>(
+    null,
+  )
   const [mlbbMinPlayers, setMlbbMinPlayers] = useState(DEFAULT_MLBB_MIN_PLAYERS)
   const [mlbbMaxPlayers, setMlbbMaxPlayers] = useState(DEFAULT_MLBB_MAX_PLAYERS)
   const [registrationStep, setRegistrationStep] =
     useState<RegistrationStep>('identity')
 
   const selected = useMemo(
-    () => (division ? DIVISIONS.find((d) => d.id === division) ?? null : null),
+    () =>
+      division ? (DIVISIONS.find((d) => d.id === division) ?? null) : null,
     [division],
   )
 
@@ -275,33 +297,36 @@ export function RegisterPage() {
         }
       })
 
+    fetchOrganizations()
+      .then((result) => {
+        if (!active) {
+          return
+        }
+        setOrganizations(result)
+        setOrganizationsError(null)
+      })
+      .catch((caught: unknown) => {
+        if (active) {
+          setOrganizationsError(firstError(caught))
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setOrganizationsLoading(false)
+        }
+      })
+
     return () => {
       active = false
     }
   }, [])
 
-  function clearRosterValidation() {
-    setRosterAlertMessages([])
-    setIncompleteRosterPlayerIds([])
-  }
-
-  function clearIdentityValidation() {
-    setIdentityAlertMessages([])
-  }
-
-  function clearSoloValidation() {
-    setSoloAlertMessages([])
-  }
-
-  function clearComplianceValidation() {
-    setComplianceAlertMessages([])
-  }
-
   function clearAllFormValidation() {
-    clearRosterValidation()
-    clearIdentityValidation()
-    clearSoloValidation()
-    clearComplianceValidation()
+    setIdentityErrors({})
+    setSoloErrors({})
+    setRosterErrors({})
+    setCaptainError(null)
+    setComplianceErrors({})
   }
 
   useEffect(() => {
@@ -311,18 +336,15 @@ export function RegisterPage() {
   }, [division])
 
   function goToPlayersStep() {
-    const issues = collectTeamIdentityIssues(team)
-    if (issues.length > 0) {
-      setIdentityAlertMessages(issues)
-      setError(issues[0])
-      identitySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const nextIdentityErrors = collectTeamIdentityErrors(team)
+    setIdentityErrors(nextIdentityErrors)
+    if (hasFieldErrors(nextIdentityErrors)) {
+      identitySectionRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
       return
     }
-    if (!validateFieldsInContainer(identitySectionRef.current)) {
-      setError('Please complete all required fields marked with *.')
-      return
-    }
-    clearIdentityValidation()
     setError(null)
     setRegistrationStep('players')
     window.setTimeout(() => {
@@ -333,53 +355,77 @@ export function RegisterPage() {
   }
 
   function goToComplianceStep() {
-    const playersSection =
-      division === 'mlbb' ? rosterSectionRef.current : soloSectionRef.current
-    let messages: string[] = []
-    let incompletePlayerIds: string[] = []
-
     if (division === 'mlbb') {
-      const rosterResult = collectMlbbRosterValidation(roster, captainPlayerId)
-      messages = rosterResult.messages
-      incompletePlayerIds = rosterResult.incompletePlayerIds
-      setRosterAlertMessages(messages)
-      setIncompleteRosterPlayerIds(incompletePlayerIds)
-      setSoloAlertMessages([])
-    } else {
-      messages = collectSoloRegistrationIssues(solo)
-      setSoloAlertMessages(messages)
-      setRosterAlertMessages([])
-      setIncompleteRosterPlayerIds([])
-    }
+      const { fieldErrors, captainError: nextCaptainError } =
+        collectMlbbRosterErrors(roster, captainPlayerId)
+      setRosterErrors(fieldErrors)
+      setCaptainError(nextCaptainError)
+      setSoloErrors({})
 
-    if (messages.length > 0 || !validateFieldsInContainer(playersSection)) {
-      setError(messages[0] ?? 'Please complete all required fields marked with *.')
-      playersSection?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      if (division === 'mlbb' && incompletePlayerIds[0]) {
-        window.setTimeout(() => {
-          playerCardRefs.current[incompletePlayerIds[0]!]?.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-          })
-        }, 200)
+      if (hasFieldErrors(fieldErrors) || nextCaptainError) {
+        rosterSectionRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        })
+        const firstIncompleteId = Object.keys(fieldErrors)[0]
+        if (firstIncompleteId) {
+          window.setTimeout(() => {
+            playerCardRefs.current[firstIncompleteId]?.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center',
+            })
+          }, 200)
+        }
+        return
       }
-      return
+    } else {
+      const nextSoloErrors = collectSoloRegistrationErrors(solo)
+      setSoloErrors(nextSoloErrors)
+      setRosterErrors({})
+      setCaptainError(null)
+
+      if (hasFieldErrors(nextSoloErrors)) {
+        soloSectionRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        })
+        return
+      }
     }
 
-    clearRosterValidation()
-    clearSoloValidation()
     setError(null)
     setRegistrationStep('compliance')
     window.setTimeout(() => {
-      complianceSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      complianceSectionRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
     }, 150)
   }
 
-  function updatePlayer(id: string, key: keyof RosterPlayer, value: string) {
+  function clearRosterFieldError(playerId: string, key: RosterFieldKey) {
+    setRosterErrors((prev) => {
+      const playerErrors = prev[playerId]
+      if (!playerErrors?.[key]) {
+        return prev
+      }
+      const nextPlayer = { ...playerErrors }
+      delete nextPlayer[key]
+      const next = { ...prev }
+      if (hasFieldErrors(nextPlayer)) {
+        next[playerId] = nextPlayer
+      } else {
+        delete next[playerId]
+      }
+      return next
+    })
+  }
+
+  function updatePlayer(id: string, key: RosterFieldKey, value: string) {
     setRoster((prev) =>
       prev.map((p) => (p.id === id ? { ...p, [key]: value } : p)),
     )
-    clearRosterValidation()
+    clearRosterFieldError(id, key)
     setError(null)
   }
 
@@ -401,8 +447,92 @@ export function RegisterPage() {
 
       const next = relabelRoster(prev.filter((player) => player.id !== id))
       setCaptainPlayerId((current) => (current === id ? null : current))
+      setRosterErrors((prevErrors) => {
+        if (!prevErrors[id]) {
+          return prevErrors
+        }
+        const nextErrors = { ...prevErrors }
+        delete nextErrors[id]
+        return nextErrors
+      })
       return next
     })
+  }
+
+  function applyServerFieldErrors(serverErrors: Record<string, string[]>) {
+    const nextIdentity: IdentityErrors = {}
+    const nextSolo: SoloErrors = {}
+    const nextCompliance: ComplianceErrors = {}
+    const unmapped: string[] = []
+
+    for (const [key, messages] of Object.entries(serverErrors)) {
+      const message = messages[0]
+      if (!message) {
+        continue
+      }
+
+      switch (key) {
+        case 'team_name':
+          nextIdentity.teamName = message
+          break
+        case 'team_tag':
+          nextIdentity.teamTag = message
+          break
+        case 'organization_id':
+        case 'organization':
+          nextIdentity.organizationId = message
+          break
+        case 'discord_id':
+          nextIdentity.discordId = message
+          break
+        case 'employee_certified':
+          nextCompliance.employeeCertified = message
+          break
+        case 'rules_accepted':
+          nextCompliance.rulesAccepted = message
+          break
+        case 'full_name':
+        case 'players.0.full_name':
+          nextSolo.fullName = message
+          break
+        case 'nrc':
+        case 'players.0.nrc':
+          nextSolo.nrc = message
+          break
+        case 'employee_id':
+        case 'players.0.employee_id':
+          nextSolo.employeeId = message
+          break
+        case 'game_id':
+        case 'players.0.game_id':
+        case 'psn_id':
+          nextSolo.psnId = message
+          break
+        case 'email':
+        case 'players.0.email':
+          nextSolo.email = message
+          break
+        case 'phone':
+        case 'players.0.phone':
+          nextSolo.phone = message
+          break
+        default:
+          unmapped.push(message)
+          break
+      }
+    }
+
+    if (hasFieldErrors(nextIdentity)) {
+      setIdentityErrors((prev) => ({ ...prev, ...nextIdentity }))
+    }
+    if (hasFieldErrors(nextSolo)) {
+      setSoloErrors((prev) => ({ ...prev, ...nextSolo }))
+    }
+    if (hasFieldErrors(nextCompliance)) {
+      setComplianceErrors((prev) => ({ ...prev, ...nextCompliance }))
+    }
+
+    return unmapped
   }
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -413,75 +543,82 @@ export function RegisterPage() {
     }
 
     if (!division) {
-      setError('Choose one competition format (MLBB squad or PS5 solo) to continue.')
-      divisionSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      setError(
+        'Choose one competition format (MLBB squad or PS5 solo) to continue.',
+      )
+      divisionSectionRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
       return
     }
 
     if (registrationStep !== 'compliance') {
-      setError('Use Next step to complete each section before confirming registration.')
+      setError(
+        'Use Next step to complete each section before confirming registration.',
+      )
       if (registrationStep === 'identity') {
-        identitySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        identitySectionRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        })
       } else {
         const target =
-          division === 'mlbb' ? rosterSectionRef.current : soloSectionRef.current
+          division === 'mlbb'
+            ? rosterSectionRef.current
+            : soloSectionRef.current
         target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }
       return
     }
 
-    const form = e.currentTarget
-    const identityIssues = collectTeamIdentityIssues(team)
-    const soloIssues =
-      division === 'ps5' ? collectSoloRegistrationIssues(solo) : []
-    const complianceIssues = collectComplianceIssues(
+    const nextIdentityErrors = collectTeamIdentityErrors(team)
+    const nextSoloErrors =
+      division === 'ps5' ? collectSoloRegistrationErrors(solo) : {}
+    const nextComplianceErrors = collectComplianceErrors(
       employeeCertified,
       rulesAccepted,
     )
-    let rosterIssues: string[] = []
-    let incompletePlayerIds: string[] = []
+    let nextRosterErrors: RosterErrors = {}
+    let nextCaptainError: string | null = null
     if (division === 'mlbb') {
-      const rosterResult = collectMlbbRosterValidation(roster, captainPlayerId)
-      rosterIssues = rosterResult.messages
-      incompletePlayerIds = rosterResult.incompletePlayerIds
+      const rosterResult = collectMlbbRosterErrors(roster, captainPlayerId)
+      nextRosterErrors = rosterResult.fieldErrors
+      nextCaptainError = rosterResult.captainError
     }
 
-    const htmlValid = form.reportValidity()
-    const hasValidationErrors =
-      !htmlValid ||
-      identityIssues.length > 0 ||
-      soloIssues.length > 0 ||
-      complianceIssues.length > 0 ||
-      rosterIssues.length > 0
+    const hasClientFieldErrors =
+      hasFieldErrors(nextIdentityErrors) ||
+      hasFieldErrors(nextSoloErrors) ||
+      hasFieldErrors(nextRosterErrors) ||
+      Boolean(nextCaptainError) ||
+      hasFieldErrors(nextComplianceErrors)
 
-    if (hasValidationErrors) {
-      setIdentityAlertMessages(identityIssues)
-      setSoloAlertMessages(soloIssues)
-      setComplianceAlertMessages(complianceIssues)
-      setRosterAlertMessages(rosterIssues)
-      setIncompleteRosterPlayerIds(incompletePlayerIds)
+    if (hasClientFieldErrors) {
+      setIdentityErrors(nextIdentityErrors)
+      setSoloErrors(nextSoloErrors)
+      setRosterErrors(nextRosterErrors)
+      setCaptainError(nextCaptainError)
+      setComplianceErrors(nextComplianceErrors)
 
-      const firstMessage =
-        identityIssues[0] ??
-        soloIssues[0] ??
-        rosterIssues[0] ??
-        complianceIssues[0] ??
-        'Please complete all required fields marked with *.'
-      setError(firstMessage)
-
-      if (!htmlValid) {
-        form.reportValidity()
-      }
-
-      if (identityIssues.length > 0) {
-        identitySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      } else if (soloIssues.length > 0) {
-        soloSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      } else if (rosterIssues.length > 0) {
-        rosterSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      if (hasFieldErrors(nextIdentityErrors)) {
+        identitySectionRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        })
+      } else if (hasFieldErrors(nextSoloErrors)) {
+        soloSectionRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        })
+      } else if (hasFieldErrors(nextRosterErrors) || nextCaptainError) {
+        rosterSectionRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        })
         const scrollTarget =
-          incompletePlayerIds[0] ??
-          (captainPlayerId ? null : roster[0]?.id ?? null)
+          Object.keys(nextRosterErrors)[0] ??
+          (nextCaptainError ? (roster[0]?.id ?? null) : null)
         if (scrollTarget && playerCardRefs.current[scrollTarget]) {
           window.setTimeout(() => {
             playerCardRefs.current[scrollTarget]?.scrollIntoView({
@@ -490,8 +627,11 @@ export function RegisterPage() {
             })
           }, 200)
         }
-      } else if (complianceIssues.length > 0) {
-        complianceSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      } else if (hasFieldErrors(nextComplianceErrors)) {
+        complianceSectionRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        })
       }
       return
     }
@@ -504,7 +644,7 @@ export function RegisterPage() {
     formData.set('division', division)
     formData.set('team_name', team.teamName)
     formData.set('team_tag', team.teamTag)
-    formData.set('organization', resolvedOrganization(team))
+    formData.set('organization_id', team.organizationId)
     formData.set('discord_id', team.discordId)
     formData.set('employee_certified', employeeCertified ? '1' : '0')
     formData.set('rules_accepted', rulesAccepted ? '1' : '0')
@@ -553,7 +693,16 @@ export function RegisterPage() {
       setReferenceId(result.data?.id ?? null)
       setSubmitted(true)
     } catch (caught) {
-      setError(firstError(caught))
+      if (caught instanceof ApiError && caught.errors) {
+        const unmapped = applyServerFieldErrors(caught.errors)
+        if (unmapped.length > 0) {
+          setError(unmapped.join(' '))
+        } else {
+          setError(null)
+        }
+      } else {
+        setError(firstError(caught))
+      }
     } finally {
       setSubmitting(false)
     }
@@ -586,8 +735,8 @@ export function RegisterPage() {
               <span className="text-cyan"> *</span>
             </h2>
             <p className="mt-1 max-w-2xl text-sm text-muted">
-              Select exactly one tournament format. You can switch anytime before
-              you submit — the form below updates to match your choice.
+              Select exactly one tournament format. You can switch anytime
+              before you submit — the form below updates to match your choice.
             </p>
           </div>
           {division ? (
@@ -603,8 +752,8 @@ export function RegisterPage() {
             className="mb-4 border border-violet/40 bg-violet/10 px-4 py-3 text-sm text-ink"
           >
             Tap <strong className="text-cyan">MLBB 5v5 Squad</strong> or{' '}
-            <strong className="text-cyan">PS5 Football 1v1</strong> to unlock the
-            registration form.
+            <strong className="text-cyan">PS5 Football 1v1</strong> to unlock
+            the registration form.
           </div>
         ) : null}
 
@@ -642,10 +791,14 @@ export function RegisterPage() {
                   {active ? (
                     <Badge tone="cyan">Your selection</Badge>
                   ) : (
-                    <span className="label-code text-faint">Select this format</span>
+                    <span className="label-code text-faint">
+                      Select this format
+                    </span>
                   )}
                 </div>
-                <h2 className="mt-2 font-display text-xl font-bold">{d.title}</h2>
+                <h2 className="mt-2 font-display text-xl font-bold">
+                  {d.title}
+                </h2>
                 <p className="mt-1 text-sm text-muted">
                   {d.tierLabel} · {d.badge}
                 </p>
@@ -679,8 +832,8 @@ export function RegisterPage() {
             Registration Pending Admin Review
           </h2>
           <p className="mt-2 text-muted">
-            Your {selected?.title ?? 'tournament'} entry is locked and waiting for
-            verification.
+            Your {selected?.title ?? 'tournament'} entry is locked and waiting
+            for verification.
             {referenceId ? ` Reference #${referenceId}.` : ''}
           </p>
           <Button
@@ -705,14 +858,14 @@ export function RegisterPage() {
           </p>
         </div>
       ) : accepting && division ? (
-        <form onSubmit={(event) => void onSubmit(event)} className="space-y-8">
+        <form
+          noValidate
+          onSubmit={(event) => void onSubmit(event)}
+          className="space-y-8"
+        >
           <section
             ref={identitySectionRef}
-            className={`border bg-chassis p-5 md:p-6 ${
-              identityAlertMessages.length > 0
-                ? 'border-critical/60 ring-1 ring-critical/30'
-                : 'border-border'
-            }`}
+            className="border border-border bg-chassis p-5 md:p-6"
           >
             <h2 className="font-display text-xl font-semibold">
               02 · Team Identity & Contact
@@ -722,32 +875,29 @@ export function RegisterPage() {
               {selected?.title ?? 'your division'}. Fields marked{' '}
               <span className="text-cyan">*</span> are required.
             </p>
-            {identityAlertMessages.length > 0 ? (
-              <div
-                role="alert"
-                className="mt-4 border border-critical/40 bg-critical/10 px-4 py-3 text-sm text-critical"
-              >
-                <p className="label-code text-critical">Section incomplete</p>
-                <ul className="mt-2 list-disc space-y-1 pl-5">
-                  {identityAlertMessages.map((message) => (
-                    <li key={message}>{message}</li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
             <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <Field label="Team Name" required>
+              <Field label="Team Name" required error={identityErrors.teamName}>
                 <Input
                   value={team.teamName}
                   onChange={(e) => {
                     setTeam({ ...team, teamName: e.target.value })
-                    clearIdentityValidation()
+                    setIdentityErrors((prev) => {
+                      if (!prev.teamName) return prev
+                      const next = { ...prev }
+                      delete next.teamName
+                      return next
+                    })
                     setError(null)
                   }}
                   required
                 />
               </Field>
-              <Field label="Team Tag (Acronym)" required hint="2 to 4 alphanumeric chars">
+              <Field
+                label="Team Tag (Acronym)"
+                required
+                hint="2 to 4 alphanumeric chars"
+                error={identityErrors.teamTag}
+              >
                 <Input
                   value={team.teamTag}
                   maxLength={4}
@@ -755,68 +905,101 @@ export function RegisterPage() {
                   onChange={(e) => {
                     setTeam({
                       ...team,
-                      teamTag: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''),
+                      teamTag: e.target.value
+                        .toUpperCase()
+                        .replace(/[^A-Z0-9]/g, ''),
                     })
-                    clearIdentityValidation()
+                    setIdentityErrors((prev) => {
+                      if (!prev.teamTag) return prev
+                      const next = { ...prev }
+                      delete next.teamTag
+                      return next
+                    })
                     setError(null)
                   }}
                   required
                 />
               </Field>
-              <Field label="Organization / Entity" required>
+              <Field
+                label="Organization / Entity"
+                required
+                error={identityErrors.organizationId}
+                hint={
+                  organizationsError
+                    ? organizationsError
+                    : organizationsLoading
+                      ? 'Loading organizations…'
+                      : organizations.length === 0
+                        ? 'No active organizations available. Ask an admin to add one in the portal.'
+                        : undefined
+                }
+              >
                 <Select
-                  value={team.organization}
+                  value={team.organizationId}
                   onChange={(e) => {
-                    const organization = e.target.value
                     setTeam({
                       ...team,
-                      organization,
-                      organizationOther:
-                        organization === ORGANIZATION_OTHER ? team.organizationOther : '',
+                      organizationId: e.target.value,
                     })
-                    clearIdentityValidation()
+                    setIdentityErrors((prev) => {
+                      if (!prev.organizationId) return prev
+                      const next = { ...prev }
+                      delete next.organizationId
+                      return next
+                    })
                     setError(null)
                   }}
+                  disabled={organizationsLoading || organizations.length === 0}
                   required
                 >
-                  {ORGANIZATIONS.map((org) => (
-                    <option key={org} value={org}>
-                      {org}
+                  <option value="" disabled>
+                    {organizationsLoading
+                      ? 'Loading organizations…'
+                      : organizations.length === 0
+                        ? 'No organizations available'
+                        : 'Select organization'}
+                  </option>
+                  {organizations.map((org) => (
+                    <option key={org.id} value={org.id}>
+                      {org.name}
                     </option>
                   ))}
-                  <option value={ORGANIZATION_OTHER}>Other</option>
                 </Select>
               </Field>
-              {team.organization === ORGANIZATION_OTHER ? (
-                <Field label="Organization Name" required>
-                  <Input
-                    value={team.organizationOther}
-                    onChange={(e) => {
-                      setTeam({ ...team, organizationOther: e.target.value })
-                      clearIdentityValidation()
-                      setError(null)
-                    }}
-                    placeholder="Enter your organization / entity name"
-                    required
-                  />
-                </Field>
-              ) : null}
-              <Field label="Discord ID / Tag" required>
+              <Field
+                label="Discord ID / Tag"
+                required
+                error={identityErrors.discordId}
+              >
                 <Input
                   value={team.discordId}
                   onChange={(e) => {
                     setTeam({ ...team, discordId: e.target.value })
-                    clearIdentityValidation()
+                    setIdentityErrors((prev) => {
+                      if (!prev.discordId) return prev
+                      const next = { ...prev }
+                      delete next.discordId
+                      return next
+                    })
                     setError(null)
                   }}
                   required
                 />
               </Field>
-              <Field label="Team Crest / Avatar" hint="Min. 512×512 transparent PNG">
+              <Field
+                label="Team Crest / Avatar"
+                hint="Min. 512×512 transparent PNG"
+              >
                 <Input
                   type="file"
                   accept="image/png,image/svg+xml"
                   onChange={(e) => setCrest(e.target.files?.[0] ?? null)}
+                  className={[
+                    'file:mr-3 file:border-0 file:bg-transparent file:p-0 file:text-sm file:font-medium',
+                    crest
+                      ? 'text-ink file:text-muted'
+                      : '!text-faint file:text-faint',
+                  ].join(' ')}
                 />
               </Field>
             </div>
@@ -846,350 +1029,455 @@ export function RegisterPage() {
                 {registrationStep === 'identity' ? (
                   <Button type="button" clip={false} onClick={goToPlayersStep}>
                     Next step:{' '}
-                    {division === 'mlbb' ? 'Roster registration' : 'Solo player'} →
+                    {division === 'mlbb'
+                      ? 'Roster registration'
+                      : 'Solo player'}{' '}
+                    →
                   </Button>
                 ) : null}
               </div>
             </div>
           </section>
 
-          {registrationStep === 'players' && division === 'mlbb' ? (
+          {(registrationStep === 'players' ||
+            registrationStep === 'compliance') &&
+          division === 'mlbb' ? (
             <section
               ref={rosterSectionRef}
-              className={`border bg-chassis p-5 md:p-6 ${
-                rosterAlertMessages.length > 0
-                  ? 'border-critical/60 ring-1 ring-critical/30'
-                  : 'border-border'
-              }`}
+              className="border border-border bg-chassis p-5 md:p-6"
             >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="font-display text-xl font-semibold">
-                    03 · Roster Registration ({mlbbMinPlayers}–{mlbbMaxPlayers} Players)
-                  </h2>
-                  <p className="mt-1 text-sm text-muted">
-                    Register at least {mlbbMinPlayers} players and up to{' '}
-                    {mlbbMaxPlayers}. All players must provide verified employee
-                    identification, corporate contact details, valid MLBB Game & Zone
-                    IDs, and exactly one designated team captain.
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge tone="cyan">
-                    Roster Slots: {roster.length} / {mlbbMaxPlayers}
-                  </Badge>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    clip={false}
-                    disabled={!accepting || roster.length >= mlbbMaxPlayers}
-                    onClick={addPlayer}
-                  >
-                    Add player
-                  </Button>
-                </div>
+              <div>
+                <h2 className="font-display text-xl font-semibold">
+                  03 · Roster Registration ({mlbbMinPlayers}–{mlbbMaxPlayers}{' '}
+                  Players)
+                </h2>
+                <p className="mt-1 text-sm text-muted">
+                  Register at least {mlbbMinPlayers} players and up to{' '}
+                  {mlbbMaxPlayers}. All players must provide verified employee
+                  identification, corporate contact details, valid MLBB Game &
+                  Zone IDs, and exactly one designated team captain.
+                </p>
+              </div>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <Badge tone="cyan">
+                  Roster Slots: {roster.length} / {mlbbMaxPlayers}
+                </Badge>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  clip={false}
+                  disabled={!accepting || roster.length >= mlbbMaxPlayers}
+                  onClick={addPlayer}
+                >
+                  Add player
+                </Button>
               </div>
 
-              {rosterAlertMessages.length > 0 ? (
-                <div
-                  role="alert"
-                  className="mt-4 border border-critical/40 bg-critical/10 px-4 py-3 text-sm text-critical"
-                >
-                  <p className="label-code text-critical">Roster incomplete</p>
-                  <p className="mt-1 text-ink">
-                    Fix the items below before you confirm registration.
-                  </p>
-                  <ul className="mt-2 list-disc space-y-1 pl-5">
-                    {rosterAlertMessages.map((message) => (
-                      <li key={message}>{message}</li>
-                    ))}
-                  </ul>
-                </div>
+              {captainError ? (
+                <p className="mt-4 text-xs text-critical">{captainError}</p>
               ) : null}
 
               <div className="mt-6 space-y-4">
-                {roster.map((player, index) => (
-                  <div
-                    key={player.id}
-                    ref={(element) => {
-                      playerCardRefs.current[player.id] = element
-                    }}
-                    className={`border bg-surface-low p-4 ${
-                      incompleteRosterPlayerIds.includes(player.id)
-                        ? 'border-critical/60 ring-1 ring-critical/30'
-                        : 'border-border'
-                    }`}
-                  >
-                    <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <span className="font-mono text-cyan">{player.label}</span>
-                        <span className="ml-3 font-display font-semibold uppercase">
-                          {player.name || `Player #${index + 1}`}
-                        </span>
-                        <span className="ml-2 label-code text-muted">
-                          Assigned Role: {player.role}
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <label className="flex cursor-pointer items-center gap-2 border border-border bg-surface-high px-3 py-1.5 text-xs uppercase tracking-wide text-muted">
-                          <input
-                            type="radio"
-                            name="team-captain"
-                            className="accent-cyan"
-                            checked={captainPlayerId === player.id}
-                            disabled={!accepting}
-                            required={index === 0}
-                            onChange={() => {
-                              setCaptainPlayerId(player.id)
-                              clearRosterValidation()
-                              setError(null)
-                            }}
-                          />
-                          <span
-                            className={
-                              captainPlayerId === player.id ? 'text-cyan' : undefined
-                            }
-                          >
-                            Team Captain *
+                {roster.map((player, index) => {
+                  const playerFieldErrors = rosterErrors[player.id]
+                  const playerIncomplete = Boolean(playerFieldErrors)
+                  return (
+                    <div
+                      key={player.id}
+                      ref={(element) => {
+                        playerCardRefs.current[player.id] = element
+                      }}
+                      className={`border bg-surface-low p-4 ${
+                        playerIncomplete
+                          ? 'border-critical/60 ring-1 ring-critical/30'
+                          : 'border-border'
+                      }`}
+                    >
+                      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <span className="font-mono text-cyan">
+                            {player.label}
                           </span>
-                        </label>
-                        {roster.length > mlbbMinPlayers ? (
-                          <Button
-                            type="button"
-                            variant="critical"
-                            clip={false}
-                            disabled={!accepting}
-                            onClick={() => removePlayer(player.id)}
+                          <span className="ml-3 font-display font-semibold uppercase">
+                            {player.name || `Player #${index + 1}`}
+                          </span>
+                          <span className="ml-2 label-code text-muted">
+                            Assigned Role: {player.role}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <label
+                            className={`flex h-9 cursor-pointer items-center gap-2 border px-3 text-xs uppercase tracking-wide transition-colors ${
+                              captainPlayerId === player.id
+                                ? 'border-violet/50 bg-violet/15 text-violet'
+                                : 'border-violet/40 bg-violet/10 text-violet'
+                            }`}
                           >
-                            Remove
-                          </Button>
-                        ) : null}
+                            <input
+                              type="radio"
+                              name="team-captain"
+                              className="accent-violet"
+                              checked={captainPlayerId === player.id}
+                              disabled={!accepting}
+                              required={index === 0}
+                              onChange={() => {
+                                setCaptainPlayerId(player.id)
+                                setCaptainError(null)
+                                setError(null)
+                              }}
+                            />
+                            <span>Team Captain *</span>
+                          </label>
+                          {roster.length > mlbbMinPlayers ? (
+                            <IconAction
+                              label="Remove player"
+                              tone="critical"
+                              disabled={!accepting}
+                              onClick={() => removePlayer(player.id)}
+                            >
+                              <IconDelete />
+                            </IconAction>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div className="grid gap-3 md:grid-cols-3">
+                        <Field
+                          label="Full Legal Name"
+                          required
+                          error={playerFieldErrors?.name}
+                        >
+                          <Input
+                            value={player.name}
+                            onChange={(e) =>
+                              updatePlayer(player.id, 'name', e.target.value)
+                            }
+                            placeholder="Full legal name"
+                            required
+                          />
+                        </Field>
+                        <Field
+                          label="National Reg. Card (NRC / ID)"
+                          required
+                          error={playerFieldErrors?.nrc}
+                        >
+                          <Input
+                            value={player.nrc}
+                            onChange={(e) =>
+                              updatePlayer(player.id, 'nrc', e.target.value)
+                            }
+                            placeholder="NRC / government ID"
+                            required
+                          />
+                        </Field>
+                        <Field
+                          label="Corporate Employee ID"
+                          required
+                          error={playerFieldErrors?.employeeId}
+                        >
+                          <Input
+                            value={player.employeeId}
+                            onChange={(e) =>
+                              updatePlayer(
+                                player.id,
+                                'employeeId',
+                                e.target.value,
+                              )
+                            }
+                            placeholder="Employee ID"
+                            required
+                          />
+                        </Field>
+                        <Field
+                          label="Phone Number"
+                          required
+                          error={playerFieldErrors?.phone}
+                        >
+                          <Input
+                            type="tel"
+                            value={player.phone}
+                            onChange={(e) =>
+                              updatePlayer(player.id, 'phone', e.target.value)
+                            }
+                            placeholder="Phone number"
+                            required
+                          />
+                        </Field>
+                        <Field
+                          label="Mail"
+                          required
+                          error={playerFieldErrors?.corporateEmail}
+                        >
+                          <Input
+                            type="email"
+                            value={player.corporateEmail}
+                            onChange={(e) =>
+                              updatePlayer(
+                                player.id,
+                                'corporateEmail',
+                                e.target.value,
+                              )
+                            }
+                            placeholder="Corporate email"
+                            required
+                          />
+                        </Field>
+                        <Field
+                          label="MLBB Game User ID"
+                          required
+                          error={playerFieldErrors?.gameUserId}
+                        >
+                          <Input
+                            value={player.gameUserId}
+                            onChange={(e) =>
+                              updatePlayer(
+                                player.id,
+                                'gameUserId',
+                                e.target.value,
+                              )
+                            }
+                            placeholder="In-game user ID"
+                            required
+                          />
+                        </Field>
+                        <Field
+                          label="Server / Zone ID"
+                          required
+                          error={playerFieldErrors?.zoneId}
+                        >
+                          <Input
+                            value={player.zoneId}
+                            onChange={(e) =>
+                              updatePlayer(player.id, 'zoneId', e.target.value)
+                            }
+                            placeholder="Server / zone ID"
+                            required
+                          />
+                        </Field>
+                        <Field
+                          label="Primary Specialization"
+                          required
+                          error={playerFieldErrors?.role}
+                        >
+                          <Select
+                            value={player.role}
+                            onChange={(e) =>
+                              updatePlayer(player.id, 'role', e.target.value)
+                            }
+                            required
+                          >
+                            <option value="" disabled>
+                              Select role
+                            </option>
+                            {roles.map((role) => (
+                              <option key={role} value={role}>
+                                {role}
+                              </option>
+                            ))}
+                          </Select>
+                        </Field>
                       </div>
                     </div>
-                    <div className="grid gap-3 md:grid-cols-3">
-                      <Field label="Full Legal Name" required>
-                        <Input
-                          value={player.name}
-                          onChange={(e) =>
-                            updatePlayer(player.id, 'name', e.target.value)
-                          }
-                          required
-                        />
-                      </Field>
-                      <Field label="National Reg. Card (NRC / ID)" required>
-                        <Input
-                          value={player.nrc}
-                          onChange={(e) =>
-                            updatePlayer(player.id, 'nrc', e.target.value)
-                          }
-                          required
-                        />
-                      </Field>
-                      <Field label="Corporate Employee ID" required>
-                        <Input
-                          value={player.employeeId}
-                          onChange={(e) =>
-                            updatePlayer(player.id, 'employeeId', e.target.value)
-                          }
-                          required
-                        />
-                      </Field>
-                      <Field label="Phone Number" required>
-                        <Input
-                          type="tel"
-                          value={player.phone}
-                          onChange={(e) =>
-                            updatePlayer(player.id, 'phone', e.target.value)
-                          }
-                          required
-                        />
-                      </Field>
-                      <Field label="Mail" required>
-                        <Input
-                          type="email"
-                          value={player.corporateEmail}
-                          onChange={(e) =>
-                            updatePlayer(player.id, 'corporateEmail', e.target.value)
-                          }
-                          required
-                        />
-                      </Field>
-                      <Field label="MLBB Game User ID" required>
-                        <Input
-                          value={player.gameUserId}
-                          onChange={(e) =>
-                            updatePlayer(player.id, 'gameUserId', e.target.value)
-                          }
-                          required
-                        />
-                      </Field>
-                      <Field label="Server / Zone ID" required>
-                        <Input
-                          value={player.zoneId}
-                          onChange={(e) =>
-                            updatePlayer(player.id, 'zoneId', e.target.value)
-                          }
-                          required
-                        />
-                      </Field>
-                      <Field label="Primary Specialization" required>
-                        <Select
-                          value={player.role}
-                          onChange={(e) =>
-                            updatePlayer(player.id, 'role', e.target.value)
-                          }
-                        >
-                          {roles.map((role) => (
-                            <option key={role} value={role}>
-                              {role}
-                            </option>
-                          ))}
-                        </Select>
-                      </Field>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
-              {registrationStep === 'players' ? (
+              {registrationStep === 'players' ||
+              registrationStep === 'compliance' ? (
                 <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
                   <p className="text-sm text-muted">
-                    Complete all roster fields and select one Team Captain before
-                    continuing.
+                    {registrationStep === 'players'
+                      ? 'Complete all roster fields and select one Team Captain before continuing.'
+                      : 'Roster complete. You can edit players above before confirming.'}
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      clip={false}
-                      onClick={() => setRegistrationStep('identity')}
-                    >
-                      Back
-                    </Button>
-                    <Button type="button" clip={false} onClick={goToComplianceStep}>
-                      Next step: Certification →
-                    </Button>
+                    {registrationStep === 'players' ? (
+                      <>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          clip={false}
+                          onClick={() => setRegistrationStep('identity')}
+                        >
+                          Back
+                        </Button>
+                        <Button
+                          type="button"
+                          clip={false}
+                          onClick={goToComplianceStep}
+                        >
+                          Next step: Certification →
+                        </Button>
+                      </>
+                    ) : null}
                   </div>
                 </div>
               ) : null}
             </section>
           ) : null}
 
-          {registrationStep === 'players' && division === 'ps5' ? (
+          {(registrationStep === 'players' ||
+            registrationStep === 'compliance') &&
+          division === 'ps5' ? (
             <section
               ref={soloSectionRef}
-              className={`border bg-chassis p-5 md:p-6 ${
-                soloAlertMessages.length > 0
-                  ? 'border-critical/60 ring-1 ring-critical/30'
-                  : 'border-border'
-              }`}
+              className="border border-border bg-chassis p-5 md:p-6"
             >
               <h2 className="font-display text-xl font-semibold">
                 03 · Solo Gladiator Registration (PS5 1v1)
               </h2>
               <p className="mt-1 text-sm text-muted">
-                All player details marked <span className="text-cyan">*</span> are
-                required before you can confirm registration.
+                All player details marked <span className="text-cyan">*</span>{' '}
+                are required before you can confirm registration.
               </p>
-              {soloAlertMessages.length > 0 ? (
-                <div
-                  role="alert"
-                  className="mt-4 border border-critical/40 bg-critical/10 px-4 py-3 text-sm text-critical"
-                >
-                  <p className="label-code text-critical">Section incomplete</p>
-                  <ul className="mt-2 list-disc space-y-1 pl-5">
-                    {soloAlertMessages.map((message) => (
-                      <li key={message}>{message}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
               <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <Field label="Full Legal Name" required>
+                <Field
+                  label="Full Legal Name"
+                  required
+                  error={soloErrors.fullName}
+                >
                   <Input
                     value={solo.fullName}
                     onChange={(e) => {
                       setSolo({ ...solo, fullName: e.target.value })
-                      clearSoloValidation()
+                      setSoloErrors((prev) => {
+                        if (!prev.fullName) return prev
+                        const next = { ...prev }
+                        delete next.fullName
+                        return next
+                      })
                       setError(null)
                     }}
+                    placeholder="Full legal name"
                     required
                   />
                 </Field>
-                <Field label="PSN ID" required>
+                <Field label="PSN ID" required error={soloErrors.psnId}>
                   <Input
                     value={solo.psnId}
                     onChange={(e) => {
                       setSolo({ ...solo, psnId: e.target.value })
-                      clearSoloValidation()
+                      setSoloErrors((prev) => {
+                        if (!prev.psnId) return prev
+                        const next = { ...prev }
+                        delete next.psnId
+                        return next
+                      })
                       setError(null)
                     }}
+                    placeholder="PSN ID"
                     required
                   />
                 </Field>
-                <Field label="Corporate Employee ID" required>
+                <Field
+                  label="Corporate Employee ID"
+                  required
+                  error={soloErrors.employeeId}
+                >
                   <Input
                     value={solo.employeeId}
                     onChange={(e) => {
                       setSolo({ ...solo, employeeId: e.target.value })
-                      clearSoloValidation()
+                      setSoloErrors((prev) => {
+                        if (!prev.employeeId) return prev
+                        const next = { ...prev }
+                        delete next.employeeId
+                        return next
+                      })
                       setError(null)
                     }}
+                    placeholder="Employee ID"
                     required
                   />
                 </Field>
-                <Field label="National Reg. Card (NRC / ID)" required>
+                <Field
+                  label="National Reg. Card (NRC / ID)"
+                  required
+                  error={soloErrors.nrc}
+                >
                   <Input
                     value={solo.nrc}
                     onChange={(e) => {
                       setSolo({ ...solo, nrc: e.target.value })
-                      clearSoloValidation()
+                      setSoloErrors((prev) => {
+                        if (!prev.nrc) return prev
+                        const next = { ...prev }
+                        delete next.nrc
+                        return next
+                      })
                       setError(null)
                     }}
+                    placeholder="NRC / government ID"
                     required
                   />
                 </Field>
-                <Field label="Corporate Email" required>
+                <Field
+                  label="Corporate Email"
+                  required
+                  error={soloErrors.email}
+                >
                   <Input
                     type="email"
                     value={solo.email}
                     onChange={(e) => {
                       setSolo({ ...solo, email: e.target.value })
-                      clearSoloValidation()
+                      setSoloErrors((prev) => {
+                        if (!prev.email) return prev
+                        const next = { ...prev }
+                        delete next.email
+                        return next
+                      })
                       setError(null)
                     }}
+                    placeholder="Corporate email"
                     required
                   />
                 </Field>
-                <Field label="Phone Number" required>
+                <Field label="Phone Number" required error={soloErrors.phone}>
                   <Input
                     type="tel"
                     value={solo.phone}
                     onChange={(e) => {
                       setSolo({ ...solo, phone: e.target.value })
-                      clearSoloValidation()
+                      setSoloErrors((prev) => {
+                        if (!prev.phone) return prev
+                        const next = { ...prev }
+                        delete next.phone
+                        return next
+                      })
                       setError(null)
                     }}
+                    placeholder="Phone number"
                     required
                   />
                 </Field>
               </div>
-              {registrationStep === 'players' ? (
+              {registrationStep === 'players' ||
+              registrationStep === 'compliance' ? (
                 <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
                   <p className="text-sm text-muted">
-                    Fill every solo player field marked * before continuing.
+                    {registrationStep === 'players'
+                      ? 'Fill every solo player field marked * before continuing.'
+                      : 'Solo player details complete. You can edit above before confirming.'}
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      clip={false}
-                      onClick={() => setRegistrationStep('identity')}
-                    >
-                      Back
-                    </Button>
-                    <Button type="button" clip={false} onClick={goToComplianceStep}>
-                      Next step: Certification →
-                    </Button>
+                    {registrationStep === 'players' ? (
+                      <>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          clip={false}
+                          onClick={() => setRegistrationStep('identity')}
+                        >
+                          Back
+                        </Button>
+                        <Button
+                          type="button"
+                          clip={false}
+                          onClick={goToComplianceStep}
+                        >
+                          Next step: Certification →
+                        </Button>
+                      </>
+                    ) : null}
                   </div>
                 </div>
               ) : null}
@@ -1197,106 +1485,133 @@ export function RegisterPage() {
           ) : null}
 
           {registrationStep === 'compliance' ? (
-          <section
-            ref={complianceSectionRef}
-            className={`border bg-chassis p-5 md:p-6 ${
-              complianceAlertMessages.length > 0
-                ? 'border-critical/60 ring-1 ring-critical/30'
-                : 'border-border'
-            }`}
-          >
-            <h2 className="font-display text-xl font-semibold">
-              04 · Compliance & Verification Certification
-            </h2>
-            {complianceAlertMessages.length > 0 ? (
-              <div
-                role="alert"
-                className="mt-4 border border-critical/40 bg-critical/10 px-4 py-3 text-sm text-critical"
-              >
-                <p className="label-code text-critical">Certification required</p>
-                <ul className="mt-2 list-disc space-y-1 pl-5">
-                  {complianceAlertMessages.map((message) => (
-                    <li key={message}>{message}</li>
-                  ))}
-                </ul>
+            <section
+              ref={complianceSectionRef}
+              className="border border-border bg-chassis p-5 md:p-6"
+            >
+              <h2 className="font-display text-xl font-semibold">
+                04 · Compliance & Verification Certification
+              </h2>
+              <div className="mt-5 space-y-4 text-sm text-muted">
+                <div
+                  className={`border px-4 py-3 ${
+                    complianceErrors.employeeCertified
+                      ? 'border-critical'
+                      : 'border-border'
+                  }`}
+                >
+                  <label className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      required
+                      className="mt-1 accent-cyan"
+                      checked={employeeCertified}
+                      onChange={(e) => {
+                        setEmployeeCertified(e.target.checked)
+                        setComplianceErrors((prev) => {
+                          if (!prev.employeeCertified) return prev
+                          const next = { ...prev }
+                          delete next.employeeCertified
+                          return next
+                        })
+                        setError(null)
+                      }}
+                    />
+                    <span>
+                      I certify that all registered players are verified
+                      corporate employees / accredited contractors and that NRC
+                      details match the employer register.
+                    </span>
+                  </label>
+                  {complianceErrors.employeeCertified ? (
+                    <p className="mt-2 text-xs text-critical">
+                      {complianceErrors.employeeCertified}
+                    </p>
+                  ) : null}
+                </div>
+                <div
+                  className={`border px-4 py-3 ${
+                    complianceErrors.rulesAccepted
+                      ? 'border-critical'
+                      : 'border-border'
+                  }`}
+                >
+                  <label className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      required
+                      className="mt-1 accent-cyan"
+                      checked={rulesAccepted}
+                      onChange={(e) => {
+                        setRulesAccepted(e.target.checked)
+                        setComplianceErrors((prev) => {
+                          if (!prev.rulesAccepted) return prev
+                          const next = { ...prev }
+                          delete next.rulesAccepted
+                          return next
+                        })
+                        setError(null)
+                      }}
+                    />
+                    <span>
+                      I accept the Official Rulebook, Anti-Cheat Armored-V4
+                      policy, and broadcasting rights release for YFD Days
+                      Season 4.
+                    </span>
+                  </label>
+                  {complianceErrors.rulesAccepted ? (
+                    <p className="mt-2 text-xs text-critical">
+                      {complianceErrors.rulesAccepted}
+                    </p>
+                  ) : null}
+                </div>
               </div>
-            ) : null}
-            <div className="mt-5 space-y-4 text-sm text-muted">
-              <label className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  required
-                  className="mt-1 accent-cyan"
-                  checked={employeeCertified}
-                  onChange={(e) => {
-                    setEmployeeCertified(e.target.checked)
-                    clearComplianceValidation()
-                    setError(null)
+              <div className="mt-6 flex flex-wrap gap-2 border-t border-border pt-5">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  clip={false}
+                  onClick={() => {
+                    setRegistrationStep('players')
+                    const target =
+                      division === 'mlbb'
+                        ? rosterSectionRef.current
+                        : soloSectionRef.current
+                    target?.scrollIntoView({
+                      behavior: 'smooth',
+                      block: 'start',
+                    })
                   }}
-                />
-                <span>
-                  I certify that all registered players are verified corporate
-                  employees / accredited contractors and that NRC details match
-                  the employer register.
-                </span>
-              </label>
-              <label className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  required
-                  className="mt-1 accent-cyan"
-                  checked={rulesAccepted}
-                  onChange={(e) => {
-                    setRulesAccepted(e.target.checked)
-                    clearComplianceValidation()
-                    setError(null)
-                  }}
-                />
-                <span>
-                  I accept the Official Rulebook, Anti-Cheat Armored-V4 policy, and
-                  broadcasting rights release for YFD Days Season 4.
-                </span>
-              </label>
-            </div>
-            <div className="mt-6 flex flex-wrap gap-2 border-t border-border pt-5">
-              <Button
-                type="button"
-                variant="secondary"
-                clip={false}
-                onClick={() => {
-                  setRegistrationStep('players')
-                  const target =
-                    division === 'mlbb'
-                      ? rosterSectionRef.current
-                      : soloSectionRef.current
-                  target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                }}
-              >
-                Back
-              </Button>
-            </div>
-          </section>
+                >
+                  Back
+                </Button>
+              </div>
+            </section>
           ) : null}
 
           {error ? (
-            <p className="border border-critical/40 bg-critical/10 px-4 py-3 text-sm text-critical">
-              {error}
-            </p>
+            <div
+              role="alert"
+              className="border border-critical/40 bg-critical/10 px-4 py-3 text-sm text-critical"
+            >
+              <p className="label-code text-critical">Registration error</p>
+              <p className="mt-1">{error}</p>
+            </div>
           ) : null}
 
           {registrationStep === 'compliance' ? (
-          <div className="flex flex-wrap gap-3">
-            <Button
-              type="submit"
-              className="min-w-[240px]"
-              disabled={submitting}
-            >
-              {submitting ? 'Submitting...' : 'Confirm & Lock Registration'}
-            </Button>
-            <Button type="button" variant="secondary">
-              Save Draft
-            </Button>
-          </div>
+            <div className="flex flex-wrap gap-3">
+              <Button
+                type="submit"
+                className="min-w-[240px]"
+                disabled={submitting}
+              >
+                {submitting ? 'Submitting...' : 'Confirm & Lock Registration'}
+              </Button>
+              <Button type="button" variant="secondary">
+                Save Draft
+              </Button>
+            </div>
           ) : null}
         </form>
       ) : null}

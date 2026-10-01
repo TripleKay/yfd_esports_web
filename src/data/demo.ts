@@ -14,7 +14,9 @@ export const SITE = {
   prizePool: '$50,000',
   region: 'APAC REGION',
   kickoffLabel: 'TOURNAMENT KICKOFF COUNTDOWN',
-  kickoffTarget: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000 + 16 * 60 * 60 * 1000),
+  kickoffTarget: new Date(
+    Date.now() + 4 * 24 * 60 * 60 * 1000 + 16 * 60 * 60 * 1000,
+  ),
 }
 
 export const NAV_LINKS = [
@@ -71,8 +73,20 @@ export const MATCHES: Match[] = [
     game: 'mlbb',
     round: 'QUARTERFINAL',
     status: 'live',
-    teamA: { id: 't1', name: 'Cyber Kings', tag: 'CK', seed: 1, region: 'SEED #01 [BLUE]' },
-    teamB: { id: 't2', name: 'Neo Phantom', tag: 'NP', seed: 4, region: 'SEED #04 [PURPLE]' },
+    teamA: {
+      id: 't1',
+      name: 'Cyber Kings',
+      tag: 'CK',
+      seed: 1,
+      region: 'SEED #01 [BLUE]',
+    },
+    teamB: {
+      id: 't2',
+      name: 'Neo Phantom',
+      tag: 'NP',
+      seed: 4,
+      region: 'SEED #04 [PURPLE]',
+    },
     scoreA: 1,
     scoreB: 1,
     mapLabel: 'MAP: SANCTUM_ARENA • BO3 KNOCKOUT',
@@ -85,7 +99,12 @@ export const MATCHES: Match[] = [
     game: 'ps5',
     round: 'ROUND OF 16',
     status: 'upcoming',
-    teamA: { id: 't3', name: 'Alex_Striker', tag: 'AS', region: 'PSN: STRIKER_9' },
+    teamA: {
+      id: 't3',
+      name: 'Alex_Striker',
+      tag: 'AS',
+      region: 'PSN: STRIKER_9',
+    },
     teamB: { id: 't4', name: 'Vortex_FC', tag: 'VF', region: 'PSN: VR_VORTEX' },
     startsAt: '2026-10-25T18:30:00Z',
     venue: 'CYBER DIGITAL STADIUM • MATCH BO1',
@@ -119,8 +138,20 @@ export const MATCHES: Match[] = [
     game: 'mlbb',
     round: 'QUARTER-FINAL 03',
     status: 'live',
-    teamA: { id: 't5', name: 'Valkyrie Sq.', tag: 'VK', seed: 2, region: 'APAC SOUTH' },
-    teamB: { id: 't6', name: 'Shadow Reap', tag: 'SR', seed: 7, region: 'APAC NORTH' },
+    teamA: {
+      id: 't5',
+      name: 'Valkyrie Sq.',
+      tag: 'VK',
+      seed: 2,
+      region: 'APAC SOUTH',
+    },
+    teamB: {
+      id: 't6',
+      name: 'Shadow Reap',
+      tag: 'SR',
+      seed: 7,
+      region: 'APAC NORTH',
+    },
     scoreA: 1,
     scoreB: 1,
     startsAt: '2026-10-25T15:30:00Z',
@@ -365,7 +396,8 @@ export const FAQS: FaqItem[] = [
     id: 'f6',
     section: 'SEC 11.0',
     category: 'SCHEDULE & DISPUTES',
-    question: 'How do teams file a formal match dispute or protest a referee ruling?',
+    question:
+      'How do teams file a formal match dispute or protest a referee ruling?',
     answer:
       'Submit a dispute ticket in the Arbiter Discord channel within 15 minutes of match end, attaching VOD timestamps and lobby screenshots. Average dispute resolution target is under 15 minutes during live broadcast windows.',
   },
@@ -373,7 +405,8 @@ export const FAQS: FaqItem[] = [
     id: 'f7',
     section: 'SEC 12.5',
     category: 'PRIZE & PAYOUT',
-    question: 'When will the $50,000 cash prize pool be disbursed to winning rosters?',
+    question:
+      'When will the $50,000 cash prize pool be disbursed to winning rosters?',
     answer:
       'Prize disbursement begins within 14 business days after grand finals and post-event integrity audit clearance. Captains receive payout instructions via verified corporate email.',
   },
@@ -448,16 +481,38 @@ export const DEMO_ROSTER: RosterPlayer[] = [
 ]
 
 export const MLBB_BRACKET: BracketNode[] = [
-  { id: 'qf1', label: 'QF 01 // COMPLETED', status: 'completed', teamA: 'Cyber Kings', teamB: 'Nova Syndicate', scoreA: 2, scoreB: 0 },
-  { id: 'qf2', label: 'QF 02 // COMPLETED', status: 'completed', teamA: 'Radiant Legacy', teamB: 'Apex Titans', scoreA: 2, scoreB: 1 },
-  { id: 'qf3', label: 'QF 03 // LIVE', status: 'live', teamA: 'Valkyrie Squad', teamB: 'Shadow Reapers', scoreA: 1, scoreB: 1 },
-  { id: 'qf4', label: 'QF 04 // SCHEDULED', status: 'scheduled', teamA: 'Zenith Esports', teamB: 'Pulse Legion' },
-]
-
-export const ORGANIZATIONS = [
-  'Nexus Cybertech Global Inc.',
-  'Quantum Rigs Microelectronics',
-  'Pulse Audio Solutions',
-  'APAC Armored Data Systems Corp',
-  'OmniFleet Logistics Pte Ltd',
+  {
+    id: 'qf1',
+    label: 'QF 01 // COMPLETED',
+    status: 'completed',
+    teamA: 'Cyber Kings',
+    teamB: 'Nova Syndicate',
+    scoreA: 2,
+    scoreB: 0,
+  },
+  {
+    id: 'qf2',
+    label: 'QF 02 // COMPLETED',
+    status: 'completed',
+    teamA: 'Radiant Legacy',
+    teamB: 'Apex Titans',
+    scoreA: 2,
+    scoreB: 1,
+  },
+  {
+    id: 'qf3',
+    label: 'QF 03 // LIVE',
+    status: 'live',
+    teamA: 'Valkyrie Squad',
+    teamB: 'Shadow Reapers',
+    scoreA: 1,
+    scoreB: 1,
+  },
+  {
+    id: 'qf4',
+    label: 'QF 04 // SCHEDULED',
+    status: 'scheduled',
+    teamA: 'Zenith Esports',
+    teamB: 'Pulse Legion',
+  },
 ]

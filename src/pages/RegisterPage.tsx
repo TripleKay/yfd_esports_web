@@ -300,7 +300,6 @@ export function RegisterPage() {
   const complianceSectionRef = useRef<HTMLElement>(null)
   const divisionSectionRef = useRef<HTMLDivElement>(null)
   const playerCardRefs = useRef<Record<string, HTMLDivElement | null>>({})
-  const [referenceId, setReferenceId] = useState<number | null>(null)
   const [settings, setSettings] = useState<RegistrationSettings | null>(null)
   const [settingsLoading, setSettingsLoading] = useState(true)
   const [settingsError, setSettingsError] = useState<string | null>(null)
@@ -759,8 +758,7 @@ export function RegisterPage() {
     }
 
     try {
-      const result = await submitRegistration(formData)
-      setReferenceId(result.data?.id ?? null)
+      await submitRegistration(formData)
       setSubmitted(true)
     } catch (caught) {
       if (caught instanceof ApiError && caught.errors) {
@@ -904,14 +902,12 @@ export function RegisterPage() {
           <p className="mt-2 text-muted">
             Your {selected?.title ?? 'tournament'} entry is locked and waiting
             for verification.
-            {referenceId ? ` Reference #${referenceId}.` : ''}
           </p>
           <Button
             className="mt-6"
             type="button"
             onClick={() => {
               setSubmitted(false)
-              setReferenceId(null)
               setDivision(null)
               setRegistrationStep('identity')
             }}

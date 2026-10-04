@@ -5,7 +5,6 @@ import { NewsArticlePage } from './pages/NewsArticlePage'
 import { NewsPage } from './pages/NewsPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { RulesPage } from './pages/RulesPage'
-import { SchedulePage } from './pages/SchedulePage'
 
 export default function App() {
   return (
@@ -14,7 +13,6 @@ export default function App() {
         <Route element={<Layout />}>
           <Route index element={<HomePage />} />
           <Route path="register" element={<RegisterPage />} />
-          <Route path="schedule" element={<SchedulePage />} />
           <Route path="rules" element={<RulesPage />} />
           <Route path="news" element={<NewsPage />} />
           <Route path="news/:id" element={<NewsArticlePage />} />

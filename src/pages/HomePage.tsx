@@ -7,17 +7,10 @@ import {
 } from '../api/registrations'
 import { Countdown } from '../components/Countdown'
 import { DivisionCard } from '../components/DivisionCard'
-import { MatchCard } from '../components/MatchCard'
 import { NewsCard } from '../components/NewsCard'
 import { LinkButton } from '../components/ui/Button'
-import { DIVISIONS, MATCHES, STATS } from '../data/demo'
-import type { GameTitle, NewsArticle } from '../types'
-
-const filters: { id: GameTitle; label: string }[] = [
-  { id: 'all', label: 'Today Match' },
-  { id: 'mlbb', label: 'MLBB 5v5' },
-  { id: 'ps5', label: 'PS5 Football 1v1' },
-]
+import { DIVISIONS, STATS } from '../data/demo'
+import type { NewsArticle } from '../types'
 
 const toneClass = {
   cyan: 'text-cyan',
@@ -67,7 +60,6 @@ function countdownFromSettings(settings: RegistrationSettings | null): {
 }
 
 export function HomePage() {
-  const [filter, setFilter] = useState<GameTitle>('all')
   const [settings, setSettings] = useState<RegistrationSettings | null>(null)
   const [settingsLoading, setSettingsLoading] = useState(true)
   const [news, setNews] = useState<NewsArticle[]>([])
@@ -118,13 +110,6 @@ export function HomePage() {
   }, [])
 
   const countdown = useMemo(() => countdownFromSettings(settings), [settings])
-
-  const fixtures = useMemo(() => {
-    const homeSet = MATCHES.filter((m) =>
-      ['m1', 'm2', 'm3', 'm4'].includes(m.id),
-    )
-    return homeSet.filter((m) => filter === 'all' || m.game === filter)
-  }, [filter])
 
   return (
     <>
@@ -212,62 +197,10 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Schedule & Fixtures */}
-      <section className="relative w-full bg-[#11131b] py-16 md:py-20">
-        <div className="mx-auto max-w-7xl px-4 md:px-6">
-          <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div>
-              <p className="label-code tracking-widest text-cyan">
-                CYBER_STADIUM // TELEMETRY_STREAM
-              </p>
-              <h2 className="mt-2 font-display text-3xl font-bold uppercase tracking-tight text-white md:text-4xl">
-                Schedule & Fixtures
-              </h2>
-              <p className="mt-3 max-w-2xl text-muted">
-                Real-time match updates, broadcast scores, and upcoming knockout
-                seedings.
-              </p>
-            </div>
-          </div>
-
-          <div className="mb-8 flex flex-wrap gap-2">
-            {filters.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => setFilter(f.id)}
-                className={[
-                  'rounded px-4 py-2 label-tactical transition-colors',
-                  filter === f.id
-                    ? 'bg-cyan font-bold text-[#00363a] shadow-[0_0_12px_rgba(0,240,255,0.4)]'
-                    : 'text-muted hover:bg-[#282a32] hover:text-white',
-                ].join(' ')}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="grid gap-5 lg:grid-cols-2">
-            {fixtures.map((match) => (
-              <MatchCard key={match.id} match={match} />
-            ))}
-          </div>
-
-          <div className="mt-8 flex justify-center">
-            <Link
-              to="/schedule"
-              className="inline-flex items-center gap-2 rounded border border-[#3b494b]/50 bg-[#191b24] px-6 py-3 label-tactical text-cyan transition-all hover:border-cyan hover:shadow-[0_0_18px_rgba(0,240,255,0.25)]"
-            >
-              View Full Tournament Bracket & Schedule →
-            </Link>
-          </div>
-        </div>
-      </section>
-
       {/* Tournament Transmissions */}
-      <section className="relative w-full border-t border-[#3b494b]/30 bg-[#0c0e16] py-16 md:py-20">
-        <div className="mx-auto max-w-7xl px-4 md:px-6">
+      <section className="relative w-full border-t border-[#3b494b]/30 bg-surface py-16 md:py-20">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(0,240,255,0.06),transparent_55%)]" />
+        <div className="relative z-10 mx-auto max-w-7xl px-4 md:px-6">
           <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="label-code tracking-widest text-cyan">
@@ -312,10 +245,10 @@ export function HomePage() {
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <LinkButton
-              to="/register"
+              to="/register#registration"
               className="w-full px-8 py-3.5 shadow-[0_0_25px_rgba(0,240,255,0.5)] sm:w-auto"
             >
-              Enter Tournament Bracket
+              Register Now →
             </LinkButton>
             <LinkButton
               to="/rules"

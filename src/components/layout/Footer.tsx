@@ -7,7 +7,7 @@ const navCols = [
     links: [
       { to: '/', label: 'Tournament Home' },
       { to: '/register', label: 'Team Registration' },
-      { to: '/schedule', label: 'Match Fixtures' },
+      { to: '/news', label: 'News' },
       { to: '/rules', label: 'Rules & Code of Conduct' },
     ],
   },
@@ -26,7 +26,7 @@ export function Footer() {
             <div className="font-display text-lg font-bold">{SITE.name}</div>
             <p className="mt-1 label-code text-cyan">{SITE.season}</p>
             <p className="mt-4 text-sm leading-6 text-muted">
-              Corporate esports championship staging elite MLBB 5v5 and PS5 Football
+              Corporate esports championship for elite MLBB 5v5 and PS5 Football
               1v1 brackets across the APAC region.
             </p>
             <button
@@ -39,7 +39,10 @@ export function Footer() {
 
           <div className="flex w-full flex-1 flex-wrap gap-10 sm:gap-12 md:gap-14 lg:w-auto lg:justify-end">
             {navCols.map((col) => (
-              <div key={col.title} className="min-w-[140px] flex-1 sm:flex-none">
+              <div
+                key={col.title}
+                className="min-w-[140px] flex-1 sm:flex-none"
+              >
                 <h3 className="label-tactical text-ink">{col.title}</h3>
                 <ul className="mt-4 space-y-2">
                   {col.links.map((link) => (
@@ -61,9 +64,7 @@ export function Footer() {
 
       <div className="border-t border-border">
         <div className="mx-auto flex max-w-[1280px] flex-col gap-2 px-5 py-4 text-xs text-faint md:flex-row md:items-center md:justify-between md:px-12">
-          <span className="font-mono">
-            NEXUS_TECH · QUANTUM_RIGS · PULSE_AUDIO · ARMORED_DATA
-          </span>
+          <span>Yoma Family Day · MLBB 5v5 and PS5 Football 1v1</span>
           <span>© 2026 YFD Esports. All competitive rights reserved.</span>
         </div>
       </div>

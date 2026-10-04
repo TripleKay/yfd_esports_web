@@ -71,15 +71,9 @@ export function NewsPage() {
   return (
     <>
       <div className="mx-auto max-w-[1280px] px-5 py-10 md:px-12 md:py-14">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="label-code text-cyan">
-            HOME // NEWS // ANNOUNCEMENTS & INTEL
-          </p>
-          <p className="label-code text-muted">
-            FEED STATUS:{' '}
-            {loading ? 'SYNCING…' : error ? 'DEGRADED' : 'SYNCHRONIZED (LIVE)'}
-          </p>
-        </div>
+        <p className="label-code text-cyan">
+          HOME // NEWS // ANNOUNCEMENTS & INTEL
+        </p>
 
         <div className="mt-6 max-w-3xl">
           <p className="label-code text-violet">

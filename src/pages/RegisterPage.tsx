@@ -803,7 +803,11 @@ export function RegisterPage() {
         </p>
       </div>
 
-      <div ref={divisionSectionRef} className="mb-8">
+      <div
+        id="registration"
+        ref={divisionSectionRef}
+        className="mb-8 scroll-mt-24"
+      >
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="font-display text-xl font-semibold">

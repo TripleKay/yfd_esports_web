@@ -1,14 +1,24 @@
+import type { DivisionCapacitySettings } from '../api/registrations'
 import type { TournamentDivision } from '../types'
 import { LinkButton } from './ui/Button'
 
 export function DivisionCard({
   division,
   accent = 'cyan',
+  capacity = null,
+  capacityLoading = false,
 }: {
   division: TournamentDivision
   accent?: 'cyan' | 'violet'
+  capacity?: DivisionCapacitySettings | null
+  capacityLoading?: boolean
 }) {
-  const pct = Math.round((division.slotsFilled / division.slotsTotal) * 100)
+  const slotsFilled = capacity?.approved_team_count ?? division.slotsFilled
+  const slotsTotal = capacity?.team_max_limit ?? division.slotsTotal
+  const pct = Math.min(
+    100,
+    Math.round((slotsFilled / Math.max(slotsTotal, 1)) * 100),
+  )
   const to = `/register?division=${division.id}`
   const isCyan = accent === 'cyan'
 
@@ -89,19 +99,24 @@ export function DivisionCard({
           <div>
             <div className="mb-1.5 flex items-center justify-between label-tactical">
               <span className="text-muted">Bracket Slots Filled</span>
-              <span className={isCyan ? 'font-bold text-[#dbfcff]' : 'font-bold text-violet'}>
-                {division.slotsFilled} / {division.slotsTotal} {division.slotsUnit} (
-                {pct}%)
+              <span
+                className={
+                  isCyan ? 'font-bold text-[#dbfcff]' : 'font-bold text-violet'
+                }
+              >
+                {capacityLoading
+                  ? 'Loading…'
+                  : `${slotsFilled} / ${slotsTotal} ${division.slotsUnit} (${pct}%)`}
               </span>
             </div>
             <div className="h-2 overflow-hidden rounded bg-[#33343d]">
               <div
                 className={
                   isCyan
-                    ? 'h-full bg-gradient-to-r from-[#dbfcff] to-cyan shadow-[0_0_10px_rgba(0,240,255,0.8)]'
-                    : 'h-full bg-gradient-to-r from-[#6f00be] to-violet shadow-[0_0_10px_rgba(168,85,247,0.8)]'
+                    ? 'h-full bg-gradient-to-r from-[#dbfcff] to-cyan shadow-[0_0_10px_rgba(0,240,255,0.8)] transition-[width]'
+                    : 'h-full bg-gradient-to-r from-[#6f00be] to-violet shadow-[0_0_10px_rgba(168,85,247,0.8)] transition-[width]'
                 }
-                style={{ width: `${pct}%` }}
+                style={{ width: `${capacityLoading ? 0 : pct}%` }}
               />
             </div>
           </div>

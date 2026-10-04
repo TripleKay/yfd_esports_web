@@ -100,7 +100,7 @@ export function HomePage() {
   useEffect(() => {
     let active = true
 
-    fetchNews({ excludeFeatured: true, limit: 3 })
+    fetchNews({ limit: 3 })
       .then((articles) => {
         if (active) {
           setNews(articles)
@@ -175,8 +175,18 @@ export function HomePage() {
           </div>
 
           <div className="mt-12 grid w-full max-w-5xl grid-cols-1 gap-6 text-left md:grid-cols-2">
-            <DivisionCard division={DIVISIONS[0]} accent="cyan" />
-            <DivisionCard division={DIVISIONS[1]} accent="violet" />
+            <DivisionCard
+              division={DIVISIONS[0]}
+              accent="cyan"
+              capacity={settings?.mlbb ?? null}
+              capacityLoading={settingsLoading}
+            />
+            <DivisionCard
+              division={DIVISIONS[1]}
+              accent="violet"
+              capacity={settings?.ps5 ?? null}
+              capacityLoading={settingsLoading}
+            />
           </div>
         </div>
       </section>
@@ -267,10 +277,16 @@ export function HomePage() {
                 Tournament Transmissions
               </h2>
               <p className="mt-3 max-w-2xl text-muted">
-                Direct alerts, balance adjustments, prize updates, and production
-                broadcasts.
+                Direct alerts, balance adjustments, prize updates, and
+                production broadcasts.
               </p>
             </div>
+            <Link
+              to="/news"
+              className="label-tactical text-cyan transition-colors hover:text-white"
+            >
+              View All Transmissions →
+            </Link>
           </div>
           <div className="grid gap-5 md:grid-cols-3">
             {news.map((article) => (
@@ -291,8 +307,8 @@ export function HomePage() {
             Ready to etch your name in cyber esports history?
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-muted">
-            Register your squad or solo slot before brackets finalize. Verify ID,
-            secure seeding, and step onto the main arena stage.
+            Register your squad or solo slot before brackets finalize. Verify
+            ID, secure seeding, and step onto the main arena stage.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <LinkButton

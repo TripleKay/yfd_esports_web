@@ -319,7 +319,15 @@ export function RegisterPage() {
     [division],
   )
 
-  const accepting = settings?.is_accepting_registrations ?? false
+  const windowOpen = settings?.is_accepting_registrations ?? false
+  const activeCapacity = division ? (settings?.[division] ?? null) : null
+  const divisionOpen = Boolean(
+    windowOpen && activeCapacity && !activeCapacity.is_full,
+  )
+  const accepting = division ? divisionOpen : windowOpen
+  const closedReason = division
+    ? (activeCapacity?.closed_reason ?? settings?.closed_reason ?? null)
+    : (settings?.closed_reason ?? null)
 
   useEffect(() => {
     let active = true
@@ -600,7 +608,7 @@ export function RegisterPage() {
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!accepting) {
-      setError(settings?.closed_reason ?? 'Registration is currently closed.')
+      setError(closedReason ?? 'Registration is currently closed.')
       return
     }
 
@@ -833,23 +841,36 @@ export function RegisterPage() {
           {DIVISIONS.map((d) => {
             const active = division === d.id
             const awaitingChoice = division === null
+            const capacity = settings?.[d.id]
+            const formatOpen = Boolean(
+              windowOpen && capacity && !capacity.is_full,
+            )
+            const formatClosedReason = !windowOpen
+              ? (settings?.closed_reason ?? null)
+              : (capacity?.closed_reason ?? null)
             return (
               <button
                 key={d.id}
                 type="button"
                 role="radio"
                 aria-checked={active}
+                disabled={settingsLoading ? false : !formatOpen}
                 onClick={() => {
+                  if (!formatOpen) {
+                    return
+                  }
                   setDivision(d.id)
                   setError(null)
                 }}
                 className={[
                   'border p-5 text-left transition-colors',
-                  active
-                    ? 'border-cyan bg-cyan/5 glow-cyan'
-                    : awaitingChoice
-                      ? 'border-dashed border-violet/50 bg-chassis hover:border-cyan/60 hover:bg-cyan/5'
-                      : 'border-border bg-chassis hover:border-violet/50',
+                  !formatOpen && !settingsLoading
+                    ? 'cursor-not-allowed border-border bg-chassis/60 opacity-60'
+                    : active
+                      ? 'border-cyan bg-cyan/5 glow-cyan'
+                      : awaitingChoice
+                        ? 'border-dashed border-violet/50 bg-chassis hover:border-cyan/60 hover:bg-cyan/5'
+                        : 'border-border bg-chassis hover:border-violet/50',
                 ].join(' ')}
               >
                 <div className="flex items-center justify-between gap-2">
@@ -858,6 +879,10 @@ export function RegisterPage() {
                   </span>
                   {active ? (
                     <Badge tone="cyan">Your selection</Badge>
+                  ) : !formatOpen && !settingsLoading ? (
+                    <Badge tone="live">
+                      {capacity?.is_full ? 'Full' : 'Closed'}
+                    </Badge>
                   ) : (
                     <span className="label-code text-faint">
                       Select this format
@@ -873,13 +898,18 @@ export function RegisterPage() {
                 <p className="mt-4 font-display text-2xl font-bold text-cyan tabular">
                   {d.prizePool}
                 </p>
+                {!formatOpen && !settingsLoading && formatClosedReason ? (
+                  <p className="mt-3 text-xs text-critical">
+                    {formatClosedReason}
+                  </p>
+                ) : null}
               </button>
             )
           })}
         </div>
       </div>
 
-      {!settingsLoading && !accepting ? (
+      {!settingsLoading && !windowOpen ? (
         <div className="mb-8 border border-critical/40 bg-critical/10 p-6">
           <p className="label-code text-critical">REGISTRATION UNAVAILABLE</p>
           <h2 className="mt-2 font-display text-2xl font-bold">
@@ -887,8 +917,21 @@ export function RegisterPage() {
           </h2>
           <p className="mt-2 text-muted">
             {settingsError ??
-              settings?.closed_reason ??
+              closedReason ??
               'Registration is currently unavailable.'}
+          </p>
+        </div>
+      ) : null}
+
+      {!settingsLoading && windowOpen && division && !accepting ? (
+        <div className="mb-8 border border-critical/40 bg-critical/10 p-6">
+          <p className="label-code text-critical">FORMAT FULL</p>
+          <h2 className="mt-2 font-display text-2xl font-bold">
+            {selected?.title ?? 'This format'} registration is full
+          </h2>
+          <p className="mt-2 text-muted">
+            {closedReason ??
+              'Choose another open format, or check back if slots open up.'}
           </p>
         </div>
       ) : null}

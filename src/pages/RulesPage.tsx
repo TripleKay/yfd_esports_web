@@ -47,8 +47,10 @@ export function RulesPage() {
                 <div
                   key={faq.id}
                   className={[
-                    'border bg-chassis transition-colors',
-                    open ? 'border-cyan' : 'border-border',
+                    'border bg-chassis transition-[border-color,box-shadow] duration-500 ease-out motion-reduce:transition-none',
+                    open
+                      ? 'border-cyan shadow-[0_0_20px_rgba(0,240,255,0.08)]'
+                      : 'border-border shadow-none',
                   ].join(' ')}
                 >
                   <button
@@ -56,6 +58,7 @@ export function RulesPage() {
                     className="flex w-full items-start justify-between gap-4 px-4 py-4 text-left"
                     onClick={() => setOpenId(open ? '' : faq.id)}
                     aria-expanded={open}
+                    aria-controls={`faq-panel-${faq.id}`}
                   >
                     <div>
                       <p className="label-code text-muted">
@@ -65,34 +68,65 @@ export function RulesPage() {
                         {faq.question}
                       </h3>
                     </div>
-                    <span className="font-mono text-cyan">{open ? '−' : '+'}</span>
+                    <span
+                      className={[
+                        'font-mono text-cyan transition-[transform] motion-reduce:transition-none',
+                        open
+                          ? 'rotate-45 duration-500 delay-75 ease-[cubic-bezier(0.32,0.72,0,1)]'
+                          : 'rotate-0 duration-300 delay-0 ease-out',
+                      ].join(' ')}
+                      aria-hidden
+                    >
+                      +
+                    </span>
                   </button>
-                  {open ? (
-                    <div className="border-t border-border px-4 py-4 text-sm leading-6 text-muted">
-                      <p>{faq.answer}</p>
-                      {faq.bullets ? (
-                        <ul className="mt-3 space-y-2">
-                          {faq.bullets.map((b) => (
-                            <li key={b} className="flex gap-2">
-                              <span className="text-cyan">▹</span>
-                              <span>{b}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
-                      {faq.linkLabel ? (
-                        <button
-                          type="button"
-                          className="mt-4 label-tactical text-cyan hover:underline"
-                        >
-                          {faq.linkLabel} →
-                        </button>
-                      ) : null}
-                      <p className="mt-4 label-code text-faint">
-                        LAST RATIFIED: 28 JAN 2026 // ARBITER COUNCIL
-                      </p>
+                  <div
+                    id={`faq-panel-${faq.id}`}
+                    role="region"
+                    aria-hidden={!open}
+                    className={[
+                      'grid motion-reduce:transition-none',
+                      'transition-[grid-template-rows] ease-[cubic-bezier(0.32,0.72,0,1)]',
+                      open
+                        ? 'grid-rows-[1fr] duration-500 delay-0'
+                        : 'grid-rows-[0fr] duration-400 delay-100',
+                    ].join(' ')}
+                  >
+                    <div className="min-h-0 overflow-hidden">
+                      <div
+                        className={[
+                          'border-t border-border px-4 py-4 text-sm leading-6 text-muted motion-reduce:transition-none',
+                          'transition-[opacity,transform] ease-out',
+                          open
+                            ? 'translate-y-0 opacity-100 duration-400 delay-150'
+                            : '-translate-y-2 opacity-0 duration-200 delay-0 ease-in',
+                        ].join(' ')}
+                      >
+                        <p>{faq.answer}</p>
+                        {faq.bullets ? (
+                          <ul className="mt-3 space-y-2">
+                            {faq.bullets.map((b) => (
+                              <li key={b} className="flex gap-2">
+                                <span className="text-cyan">▹</span>
+                                <span>{b}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                        {faq.linkLabel ? (
+                          <button
+                            type="button"
+                            className="mt-4 label-tactical text-cyan hover:underline"
+                          >
+                            {faq.linkLabel} →
+                          </button>
+                        ) : null}
+                        <p className="mt-4 label-code text-faint">
+                          LAST RATIFIED: 28 JAN 2026 // ARBITER COUNCIL
+                        </p>
+                      </div>
                     </div>
-                  ) : null}
+                  </div>
                 </div>
               )
             })}

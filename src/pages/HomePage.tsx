@@ -146,8 +146,8 @@ export function HomePage() {
 
           <p className="mt-5 max-w-3xl text-base leading-relaxed text-muted md:text-lg md:leading-7">
             Compete against elite squads and solo champions in the ultimate
-            competitive gaming arena. Claim national supremacy, hardware
-            contracts, and your slice of the $50,000 pool.
+            esports arena. Claim local supremacy, exclusive rewards, and your
+            slice of the 15,000,000 MMK prize pool!
           </p>
 
           <div className="mt-9 flex w-full justify-center">
@@ -206,8 +206,8 @@ export function HomePage() {
               <p className="label-code tracking-widest text-cyan">
                 SECURE_FEED // COMM_ARRAY
               </p>
-              <h2 className="mt-2 font-display text-3xl font-bold uppercase tracking-tight text-white md:text-4xl">
-                Tournament Transmissions
+              <h2 className="mt-2 font-display text-3xl font-bold tracking-tight text-white md:text-4xl">
+                Latest News & Announcements
               </h2>
               <p className="mt-3 max-w-2xl text-muted">
                 Direct alerts, balance adjustments, prize updates, and
@@ -218,7 +218,7 @@ export function HomePage() {
               to="/news"
               className="label-tactical text-cyan transition-colors hover:text-white"
             >
-              View All Transmissions →
+              View All News
             </Link>
           </div>
           <div className="grid gap-5 md:grid-cols-3">

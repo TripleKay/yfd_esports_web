@@ -26,9 +26,9 @@ export const NAV_LINKS = [
 
 export const STATS = [
   { label: 'Confirm team (MLBB)', value: '192', tone: 'cyan' as const },
-  { label: 'Final Price (MLBB)', value: '$50,000', tone: 'violet' as const },
+  { label: 'Final Price (MLBB)', value: '1,000,000 MMK', tone: 'violet' as const },
   { label: 'Confirm team (PS5)', value: '32', tone: 'critical' as const },
-  { label: 'Final Price (PS5)', value: '$5,000', tone: 'primary' as const },
+  { label: 'Final Price (PS5)', value: '500,000 MMK', tone: 'primary' as const },
 ]
 
 export const DIVISIONS: TournamentDivision[] = [
@@ -38,7 +38,7 @@ export const DIVISIONS: TournamentDivision[] = [
     subtitle: '5v5 SQUAD MOBA',
     badge: 'MOBILE',
     tierLabel: 'TIER 1 CHAMPIONSHIP',
-    prizePool: '$30,000',
+    prizePool: '1,000,000MMK',
     slotsFilled: 48,
     slotsTotal: 64,
     slotsUnit: 'SQUADS',
@@ -53,7 +53,7 @@ export const DIVISIONS: TournamentDivision[] = [
     subtitle: '1v1 SOLO STRIKER',
     badge: 'PS5 CONSOLE',
     tierLabel: 'COMPETITIVE SOCCER',
-    prizePool: '$20,000',
+    prizePool: '500,000 MMK',
     slotsFilled: 94,
     slotsTotal: 128,
     slotsUnit: 'SEEDS',

@@ -1,4 +1,5 @@
 import { ApiError } from './registrations'
+import { apiFetch } from './signature'
 
 export type Organization = {
   id: string
@@ -9,12 +10,9 @@ export type Organization = {
 }
 
 export async function fetchOrganizations(): Promise<Organization[]> {
-  const response = await fetch(
-    `${import.meta.env.VITE_API_URL}/organizations`,
-    {
-      headers: { Accept: 'application/json' },
-    },
-  )
+  const response = await apiFetch('/organizations', {
+    headers: { Accept: 'application/json' },
+  })
 
   const body = (await response.json().catch(() => ({}))) as {
     message?: string

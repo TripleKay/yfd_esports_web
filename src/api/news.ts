@@ -1,4 +1,5 @@
 import { ApiError } from './registrations'
+import { apiFetch } from './signature'
 import type { NewsArticle as UiNewsArticle, NewsCategory } from '../types'
 
 export type ApiNewsArticle = {
@@ -78,12 +79,9 @@ export async function fetchNews(
   }
 
   const suffix = query.toString() ? `?${query}` : ''
-  const response = await fetch(
-    `${import.meta.env.VITE_API_URL}/news${suffix}`,
-    {
-      headers: { Accept: 'application/json' },
-    },
-  )
+  const response = await apiFetch(`/news${suffix}`, {
+    headers: { Accept: 'application/json' },
+  })
 
   const body = (await response.json().catch(() => ({}))) as {
     message?: string
@@ -98,7 +96,7 @@ export async function fetchNews(
 }
 
 export async function fetchNewsArticle(id: string): Promise<UiNewsArticle> {
-  const response = await fetch(`${import.meta.env.VITE_API_URL}/news/${id}`, {
+  const response = await apiFetch(`/news/${id}`, {
     headers: { Accept: 'application/json' },
   })
 

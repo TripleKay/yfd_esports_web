@@ -2,6 +2,7 @@
 
 interface ImportMetaEnv {
   readonly VITE_API_URL: string
+  readonly VITE_REQUEST_SIGNATURE_SECRET?: string
 }
 
 interface ImportMeta {

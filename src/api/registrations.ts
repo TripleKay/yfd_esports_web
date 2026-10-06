@@ -1,3 +1,5 @@
+import { apiFetch } from './signature'
+
 export class ApiError extends Error {
   status: number
   errors?: Record<string, string[]>
@@ -34,12 +36,9 @@ export type RegistrationSettings = {
 }
 
 export async function fetchRegistrationSettings(): Promise<RegistrationSettings> {
-  const response = await fetch(
-    `${import.meta.env.VITE_API_URL}/registration-settings`,
-    {
-      headers: { Accept: 'application/json' },
-    },
-  )
+  const response = await apiFetch('/registration-settings', {
+    headers: { Accept: 'application/json' },
+  })
 
   const body = (await response.json().catch(() => ({}))) as {
     message?: string
@@ -57,16 +56,13 @@ export async function fetchRegistrationSettings(): Promise<RegistrationSettings>
 }
 
 export async function submitRegistration(formData: FormData) {
-  const response = await fetch(
-    `${import.meta.env.VITE_API_URL}/registrations`,
-    {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-      },
-      body: formData,
+  const response = await apiFetch('/registrations', {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
     },
-  )
+    body: formData,
+  })
 
   const body = (await response.json().catch(() => ({}))) as {
     message?: string

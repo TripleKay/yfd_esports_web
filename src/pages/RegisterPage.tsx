@@ -15,7 +15,7 @@ import { Button } from '../components/ui/Button'
 import { Field, Input, Select } from '../components/ui/Field'
 import { IconAction, IconDelete } from '../components/ui/IconAction'
 import { DIVISIONS } from '../data/demo'
-import type { GameTitle, RosterPlayer } from '../types'
+import type { GameTitle, OrganizationType, RosterPlayer } from '../types'
 
 const roles = ['JUNGLER', 'MID', 'GOLD', 'ROAM', 'EXP'] as const
 const DEFAULT_MLBB_MIN_PLAYERS = 5
@@ -24,6 +24,7 @@ const DEFAULT_MLBB_MAX_PLAYERS = 7
 type TeamForm = {
   teamName: string
   teamTag: string
+  organizationType: OrganizationType
   organizationId: string
   discordId: string
 }
@@ -35,17 +36,29 @@ type SoloForm = {
   nrc: string
   email: string
   phone: string
+  organizationId: string
 }
 
 type IdentityErrors = Partial<
   Record<
-    'teamName' | 'teamTag' | 'organizationId' | 'discordId' | 'crest',
+    | 'teamName'
+    | 'teamTag'
+    | 'organizationType'
+    | 'organizationId'
+    | 'discordId'
+    | 'crest',
     string
   >
 >
 type SoloErrors = Partial<
   Record<
-    'fullName' | 'psnId' | 'employeeId' | 'nrc' | 'email' | 'phone',
+    | 'fullName'
+    | 'psnId'
+    | 'employeeId'
+    | 'nrc'
+    | 'email'
+    | 'phone'
+    | 'organizationId',
     string
   >
 >
@@ -58,6 +71,7 @@ type RosterFieldKey =
   | 'gameUserId'
   | 'zoneId'
   | 'role'
+  | 'organizationId'
 type RosterErrors = Record<string, Partial<Record<RosterFieldKey, string>>>
 type ComplianceErrors = Partial<
   Record<'employeeCertified' | 'rulesAccepted', string>
@@ -66,6 +80,7 @@ type ComplianceErrors = Partial<
 const initialTeam: TeamForm = {
   teamName: '',
   teamTag: '',
+  organizationType: 'single',
   organizationId: '',
   discordId: '',
 }
@@ -77,6 +92,7 @@ const initialSolo: SoloForm = {
   nrc: '',
   email: '',
   phone: '',
+  organizationId: '',
 }
 
 function emptyRosterPlayer(index: number): RosterPlayer {
@@ -91,6 +107,7 @@ function emptyRosterPlayer(index: number): RosterPlayer {
     corporateEmail: '',
     gameUserId: '',
     zoneId: '',
+    organizationId: '',
     verified: false,
   }
 }
@@ -108,10 +125,8 @@ function relabelRoster(players: RosterPlayer[]): RosterPlayer[] {
 
 const ROSTER_REQUIRED_FIELDS: { key: RosterFieldKey; label: string }[] = [
   { key: 'name', label: 'Full Legal Name' },
-  { key: 'nrc', label: 'National Reg. Card (NRC / ID)' },
   { key: 'employeeId', label: 'Corporate Employee ID' },
   { key: 'phone', label: 'Phone Number' },
-  { key: 'corporateEmail', label: 'Mail' },
   { key: 'gameUserId', label: 'MLBB Game User ID' },
   { key: 'zoneId', label: 'Server / Zone ID' },
   { key: 'role', label: 'Primary Specialization' },
@@ -145,7 +160,7 @@ function phoneError(value: string): string | null {
 
 function emailError(value: string, label = 'Email'): string | null {
   if (!value.trim()) {
-    return `${label} is required.`
+    return null
   }
   if (!isValidEmail(value)) {
     return `Enter a valid ${label.toLowerCase()}.`
@@ -176,7 +191,10 @@ function collectTeamIdentityErrors(
   } else if (team.teamTag.trim().length < 2) {
     errors.teamTag = 'Team tag must be at least 2 characters.'
   }
-  if (!team.organizationId.trim()) {
+  if (!team.organizationType) {
+    errors.organizationType = 'Organization type is required.'
+  }
+  if (team.organizationType === 'single' && !team.organizationId.trim()) {
     errors.organizationId = 'Organization / Entity is required.'
   }
   if (!team.discordId.trim()) {
@@ -189,7 +207,10 @@ function collectTeamIdentityErrors(
   return errors
 }
 
-function collectSoloRegistrationErrors(solo: SoloForm): SoloErrors {
+function collectSoloRegistrationErrors(
+  solo: SoloForm,
+  organizationType: OrganizationType,
+): SoloErrors {
   const errors: SoloErrors = {}
   if (!solo.fullName.trim()) {
     errors.fullName = 'Full Legal Name is required.'
@@ -200,8 +221,8 @@ function collectSoloRegistrationErrors(solo: SoloForm): SoloErrors {
   if (!solo.employeeId.trim()) {
     errors.employeeId = 'Corporate Employee ID is required.'
   }
-  if (!solo.nrc.trim()) {
-    errors.nrc = 'National Reg. Card (NRC / ID) is required.'
+  if (organizationType === 'mix' && !solo.organizationId.trim()) {
+    errors.organizationId = 'Organization / Entity is required.'
   }
   const mailError = emailError(solo.email, 'Corporate Email')
   if (mailError) {
@@ -217,12 +238,21 @@ function collectSoloRegistrationErrors(solo: SoloForm): SoloErrors {
 function collectMlbbRosterErrors(
   roster: RosterPlayer[],
   captainPlayerId: string | null,
+  organizationType: OrganizationType,
 ): { fieldErrors: RosterErrors; captainError: string | null } {
   const fieldErrors: RosterErrors = {}
   const captainError =
     !captainPlayerId || !roster.some((player) => player.id === captainPlayerId)
       ? 'Select exactly one Team Captain.'
       : null
+
+  const phoneCounts = new Map<string, number>()
+  for (const player of roster) {
+    const phone = player.phone.trim()
+    if (phone) {
+      phoneCounts.set(phone, (phoneCounts.get(phone) ?? 0) + 1)
+    }
+  }
 
   for (const player of roster) {
     const playerErrors: Partial<Record<RosterFieldKey, string>> = {}
@@ -232,19 +262,22 @@ function collectMlbbRosterErrors(
         const error = phoneError(typeof value === 'string' ? value : '')
         if (error) {
           playerErrors.phone = error
-        }
-        continue
-      }
-      if (key === 'corporateEmail') {
-        const error = emailError(typeof value === 'string' ? value : '', 'Mail')
-        if (error) {
-          playerErrors.corporateEmail = error
+        } else if ((phoneCounts.get(player.phone.trim()) ?? 0) > 1) {
+          playerErrors.phone =
+            'This phone number is already used by another player.'
         }
         continue
       }
       if (typeof value !== 'string' || !value.trim()) {
         playerErrors[key] = `${label} is required.`
       }
+    }
+    if (organizationType === 'mix' && !player.organizationId.trim()) {
+      playerErrors.organizationId = 'Organization / Entity is required.'
+    }
+    const mailError = emailError(player.corporateEmail, 'Mail')
+    if (mailError) {
+      playerErrors.corporateEmail = mailError
     }
     if (hasFieldErrors(playerErrors)) {
       fieldErrors[player.id] = playerErrors
@@ -423,7 +456,7 @@ export function RegisterPage() {
   function goToComplianceStep() {
     if (division === 'mlbb') {
       const { fieldErrors, captainError: nextCaptainError } =
-        collectMlbbRosterErrors(roster, captainPlayerId)
+        collectMlbbRosterErrors(roster, captainPlayerId, team.organizationType)
       setRosterErrors(fieldErrors)
       setCaptainError(nextCaptainError)
       setSoloErrors({})
@@ -445,7 +478,10 @@ export function RegisterPage() {
         return
       }
     } else {
-      const nextSoloErrors = collectSoloRegistrationErrors(solo)
+      const nextSoloErrors = collectSoloRegistrationErrors(
+        solo,
+        team.organizationType,
+      )
       setSoloErrors(nextSoloErrors)
       setRosterErrors({})
       setCaptainError(null)
@@ -545,6 +581,9 @@ export function RegisterPage() {
         case 'team_tag':
           nextIdentity.teamTag = message
           break
+        case 'organization_type':
+          nextIdentity.organizationType = message
+          break
         case 'organization_id':
         case 'organization':
           nextIdentity.organizationId = message
@@ -585,6 +624,10 @@ export function RegisterPage() {
         case 'phone':
         case 'players.0.phone':
           nextSolo.phone = message
+          break
+        case 'players.0.organization_id':
+        case 'players.0.organization':
+          nextSolo.organizationId = message
           break
         default:
           unmapped.push(message)
@@ -644,7 +687,9 @@ export function RegisterPage() {
 
     const nextIdentityErrors = collectTeamIdentityErrors(team, crest)
     const nextSoloErrors =
-      division === 'ps5' ? collectSoloRegistrationErrors(solo) : {}
+      division === 'ps5'
+        ? collectSoloRegistrationErrors(solo, team.organizationType)
+        : {}
     const nextComplianceErrors = collectComplianceErrors(
       employeeCertified,
       rulesAccepted,
@@ -652,7 +697,11 @@ export function RegisterPage() {
     let nextRosterErrors: RosterErrors = {}
     let nextCaptainError: string | null = null
     if (division === 'mlbb') {
-      const rosterResult = collectMlbbRosterErrors(roster, captainPlayerId)
+      const rosterResult = collectMlbbRosterErrors(
+        roster,
+        captainPlayerId,
+        team.organizationType,
+      )
       nextRosterErrors = rosterResult.fieldErrors
       nextCaptainError = rosterResult.captainError
     }
@@ -714,7 +763,10 @@ export function RegisterPage() {
     formData.set('division', division)
     formData.set('team_name', team.teamName)
     formData.set('team_tag', team.teamTag)
-    formData.set('organization_id', team.organizationId)
+    formData.set('organization_type', team.organizationType)
+    if (team.organizationType === 'single') {
+      formData.set('organization_id', team.organizationId)
+    }
     formData.set('discord_id', team.discordId)
     formData.set('employee_certified', employeeCertified ? '1' : '0')
     formData.set('rules_accepted', rulesAccepted ? '1' : '0')
@@ -743,6 +795,9 @@ export function RegisterPage() {
             game_id: player.gameUserId,
             zone_id: player.zoneId,
             is_captain: player.id === captainPlayerId,
+            ...(team.organizationType === 'mix'
+              ? { organization_id: player.organizationId }
+              : {}),
           })),
         ),
       )
@@ -760,6 +815,9 @@ export function RegisterPage() {
             email: solo.email,
             phone: solo.phone,
             is_captain: true,
+            ...(team.organizationType === 'mix'
+              ? { organization_id: solo.organizationId }
+              : {}),
           },
         ]),
       )
@@ -1034,51 +1092,89 @@ export function RegisterPage() {
                 />
               </Field>
               <Field
-                label="Organization / Entity"
+                label="Organization Type"
                 required
-                error={identityErrors.organizationId}
-                hint={
-                  organizationsError
-                    ? organizationsError
-                    : organizationsLoading
-                      ? 'Loading organizations…'
-                      : organizations.length === 0
-                        ? 'No active organizations available. Ask an admin to add one in the portal.'
-                        : undefined
-                }
+                error={identityErrors.organizationType}
+                hint="Single = one org for the team. Mix = each player picks their own org."
               >
                 <Select
-                  value={team.organizationId}
+                  value={team.organizationType}
                   onChange={(e) => {
+                    const organizationType = e.target.value as OrganizationType
                     setTeam({
                       ...team,
-                      organizationId: e.target.value,
+                      organizationType,
+                      organizationId:
+                        organizationType === 'single'
+                          ? team.organizationId
+                          : '',
                     })
                     setIdentityErrors((prev) => {
-                      if (!prev.organizationId) return prev
                       const next = { ...prev }
-                      delete next.organizationId
+                      delete next.organizationType
+                      if (organizationType === 'mix') {
+                        delete next.organizationId
+                      }
                       return next
                     })
                     setError(null)
                   }}
-                  disabled={organizationsLoading || organizations.length === 0}
                   required
                 >
-                  <option value="" disabled>
-                    {organizationsLoading
-                      ? 'Loading organizations…'
-                      : organizations.length === 0
-                        ? 'No organizations available'
-                        : 'Select organization'}
-                  </option>
-                  {organizations.map((org) => (
-                    <option key={org.id} value={org.id}>
-                      {org.name}
-                    </option>
-                  ))}
+                  <option value="single">Single organization</option>
+                  <option value="mix">Mix organizations</option>
                 </Select>
               </Field>
+              {team.organizationType === 'single' ? (
+                <Field
+                  label="Organization / Entity"
+                  required
+                  error={identityErrors.organizationId}
+                  hint={
+                    organizationsError
+                      ? organizationsError
+                      : organizationsLoading
+                        ? 'Loading organizations…'
+                        : organizations.length === 0
+                          ? 'No active organizations available. Ask an admin to add one in the portal.'
+                          : undefined
+                  }
+                >
+                  <Select
+                    value={team.organizationId}
+                    onChange={(e) => {
+                      setTeam({
+                        ...team,
+                        organizationId: e.target.value,
+                      })
+                      setIdentityErrors((prev) => {
+                        if (!prev.organizationId) return prev
+                        const next = { ...prev }
+                        delete next.organizationId
+                        return next
+                      })
+                      setError(null)
+                    }}
+                    disabled={
+                      organizationsLoading || organizations.length === 0
+                    }
+                    required
+                  >
+                    <option value="" disabled>
+                      {organizationsLoading
+                        ? 'Loading organizations…'
+                        : organizations.length === 0
+                          ? 'No organizations available'
+                          : 'Select organization'}
+                    </option>
+                    {organizations.map((org) => (
+                      <option key={org.id} value={org.id}>
+                        {org.name}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              ) : null}
               <Field
                 label="Discord ID / Tag"
                 required
@@ -1287,20 +1383,6 @@ export function RegisterPage() {
                           />
                         </Field>
                         <Field
-                          label="National Reg. Card (NRC / ID)"
-                          required
-                          error={playerFieldErrors?.nrc}
-                        >
-                          <Input
-                            value={player.nrc}
-                            onChange={(e) =>
-                              updatePlayer(player.id, 'nrc', e.target.value)
-                            }
-                            placeholder="NRC / government ID"
-                            required
-                          />
-                        </Field>
-                        <Field
                           label="Corporate Employee ID"
                           required
                           error={playerFieldErrors?.employeeId}
@@ -1338,7 +1420,6 @@ export function RegisterPage() {
                         </Field>
                         <Field
                           label="Mail"
-                          required
                           error={playerFieldErrors?.corporateEmail}
                         >
                           <Input
@@ -1351,8 +1432,7 @@ export function RegisterPage() {
                                 e.target.value,
                               )
                             }
-                            placeholder="Corporate email"
-                            required
+                            placeholder="Corporate email (optional)"
                           />
                         </Field>
                         <Field
@@ -1409,6 +1489,38 @@ export function RegisterPage() {
                             ))}
                           </Select>
                         </Field>
+                        {team.organizationType === 'mix' ? (
+                          <Field
+                            label="Organization / Entity"
+                            required
+                            error={playerFieldErrors?.organizationId}
+                          >
+                            <Select
+                              value={player.organizationId}
+                              onChange={(e) =>
+                                updatePlayer(
+                                  player.id,
+                                  'organizationId',
+                                  e.target.value,
+                                )
+                              }
+                              disabled={
+                                organizationsLoading ||
+                                organizations.length === 0
+                              }
+                              required
+                            >
+                              <option value="" disabled>
+                                Select organization
+                              </option>
+                              {organizations.map((org) => (
+                                <option key={org.id} value={org.id}>
+                                  {org.name}
+                                </option>
+                              ))}
+                            </Select>
+                          </Field>
+                        ) : null}
                       </div>
                     </div>
                   )
@@ -1522,32 +1634,7 @@ export function RegisterPage() {
                     required
                   />
                 </Field>
-                <Field
-                  label="National Reg. Card (NRC / ID)"
-                  required
-                  error={soloErrors.nrc}
-                >
-                  <Input
-                    value={solo.nrc}
-                    onChange={(e) => {
-                      setSolo({ ...solo, nrc: e.target.value })
-                      setSoloErrors((prev) => {
-                        if (!prev.nrc) return prev
-                        const next = { ...prev }
-                        delete next.nrc
-                        return next
-                      })
-                      setError(null)
-                    }}
-                    placeholder="NRC / government ID"
-                    required
-                  />
-                </Field>
-                <Field
-                  label="Corporate Email"
-                  required
-                  error={soloErrors.email}
-                >
+                <Field label="Corporate Email" error={soloErrors.email}>
                   <Input
                     type="email"
                     value={solo.email}
@@ -1561,8 +1648,7 @@ export function RegisterPage() {
                       })
                       setError(null)
                     }}
-                    placeholder="Corporate email"
-                    required
+                    placeholder="Corporate email (optional)"
                   />
                 </Field>
                 <Field label="Phone Number" required error={soloErrors.phone}>
@@ -1586,6 +1672,40 @@ export function RegisterPage() {
                     required
                   />
                 </Field>
+                {team.organizationType === 'mix' ? (
+                  <Field
+                    label="Organization / Entity"
+                    required
+                    error={soloErrors.organizationId}
+                  >
+                    <Select
+                      value={solo.organizationId}
+                      onChange={(e) => {
+                        setSolo({ ...solo, organizationId: e.target.value })
+                        setSoloErrors((prev) => {
+                          if (!prev.organizationId) return prev
+                          const next = { ...prev }
+                          delete next.organizationId
+                          return next
+                        })
+                        setError(null)
+                      }}
+                      disabled={
+                        organizationsLoading || organizations.length === 0
+                      }
+                      required
+                    >
+                      <option value="" disabled>
+                        Select organization
+                      </option>
+                      {organizations.map((org) => (
+                        <option key={org.id} value={org.id}>
+                          {org.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                ) : null}
               </div>
               {registrationStep === 'players' ||
               registrationStep === 'compliance' ? (
@@ -1656,8 +1776,7 @@ export function RegisterPage() {
                     />
                     <span>
                       I certify that all registered players are verified
-                      corporate employees / accredited contractors and that NRC
-                      details match the employer register.
+                      corporate employees / accredited contractors.
                     </span>
                   </label>
                   {complianceErrors.employeeCertified ? (

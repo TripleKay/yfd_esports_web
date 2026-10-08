@@ -26,9 +26,17 @@ export const NAV_LINKS = [
 
 export const STATS = [
   { label: 'Confirm team (MLBB)', value: '192', tone: 'cyan' as const },
-  { label: 'Final Price (MLBB)', value: '1,000,000 MMK', tone: 'violet' as const },
+  {
+    label: 'Final Price (MLBB)',
+    value: '1,000,000 MMK',
+    tone: 'violet' as const,
+  },
   { label: 'Confirm team (PS5)', value: '32', tone: 'critical' as const },
-  { label: 'Final Price (PS5)', value: '500,000 MMK', tone: 'primary' as const },
+  {
+    label: 'Final Price (PS5)',
+    value: '500,000 MMK',
+    tone: 'primary' as const,
+  },
 ]
 
 export const DIVISIONS: TournamentDivision[] = [
@@ -250,6 +258,7 @@ export const DEMO_ROSTER: RosterPlayer[] = [
     corporateEmail: 'alexander.vance@nexus.corp',
     gameUserId: 'VancePrime',
     zoneId: '2048',
+    organizationId: '',
     verified: true,
   },
   {
@@ -263,6 +272,7 @@ export const DEMO_ROSTER: RosterPlayer[] = [
     corporateEmail: 'kaizen.chen@nexus.corp',
     gameUserId: 'RoninBlade',
     zoneId: '2048',
+    organizationId: '',
     verified: true,
   },
   {
@@ -276,6 +286,7 @@ export const DEMO_ROSTER: RosterPlayer[] = [
     corporateEmail: 'sarah.jin@nexus.corp',
     gameUserId: 'AuraBurst',
     zoneId: '2050',
+    organizationId: '',
     verified: true,
   },
   {
@@ -289,6 +300,7 @@ export const DEMO_ROSTER: RosterPlayer[] = [
     corporateEmail: 'marcus.hale@nexus.corp',
     gameUserId: 'HaleMarksman',
     zoneId: '2048',
+    organizationId: '',
     verified: false,
   },
   {
@@ -302,6 +314,7 @@ export const DEMO_ROSTER: RosterPlayer[] = [
     corporateEmail: 'priya.nair@nexus.corp',
     gameUserId: 'NairAnchor',
     zoneId: '2049',
+    organizationId: '',
     verified: false,
   },
 ]

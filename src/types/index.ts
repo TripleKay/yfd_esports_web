@@ -41,6 +41,8 @@ export interface FaqItem {
   linkLabel?: string
 }
 
+export type OrganizationType = 'single' | 'mix'
+
 export interface RosterPlayer {
   id: string
   label: string
@@ -52,5 +54,6 @@ export interface RosterPlayer {
   corporateEmail: string
   gameUserId: string
   zoneId: string
+  organizationId: string
   verified: boolean
 }

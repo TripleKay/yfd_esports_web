@@ -4,6 +4,8 @@ import { HomePage } from './pages/HomePage'
 import { NewsArticlePage } from './pages/NewsArticlePage'
 import { NewsPage } from './pages/NewsPage'
 import { RegisterPage } from './pages/RegisterPage'
+import { MlbbRulesPage } from './pages/MlbbRulesPage'
+import { Ps5RulesPage } from './pages/Ps5RulesPage'
 import { RulesPage } from './pages/RulesPage'
 
 export default function App() {
@@ -14,6 +16,8 @@ export default function App() {
           <Route index element={<HomePage />} />
           <Route path="register" element={<RegisterPage />} />
           <Route path="rules" element={<RulesPage />} />
+          <Route path="rules/mlbb" element={<MlbbRulesPage />} />
+          <Route path="rules/ps5" element={<Ps5RulesPage />} />
           <Route path="news" element={<NewsPage />} />
           <Route path="news/:id" element={<NewsArticlePage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

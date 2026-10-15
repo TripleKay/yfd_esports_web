@@ -4,12 +4,14 @@ React + TypeScript frontend for the YFD Days esports tournament site, implemente
 
 ## Pages
 
-| Route       | Page                    |
-| ----------- | ----------------------- |
-| `/`         | Landing                 |
-| `/register` | Tournament registration |
-| `/news`     | News & announcements    |
-| `/rules`    | Rules & FAQ             |
+| Route         | Page                              |
+| ------------- | --------------------------------- |
+| `/`           | Landing                           |
+| `/register`   | Tournament registration           |
+| `/news`       | News & announcements              |
+| `/rules`      | Rules & FAQ                       |
+| `/rules/mlbb` | YFD 2026 MLBB rules & regulations |
+| `/rules/ps5`  | YFD 2026 PS5 rules & regulations  |
 
 ## Stack
 

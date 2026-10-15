@@ -1,10 +1,18 @@
 import { useState } from 'react'
-import { Link, NavLink } from 'react-router-dom'
+import { Link, NavLink, useLocation } from 'react-router-dom'
 import { NAV_LINKS, SITE } from '../../data/demo'
 import { LinkButton } from '../ui/Button'
 
+function rulebookActive(to: string, isActive: boolean, pathname: string) {
+  if (to === '/rules/mlbb') {
+    return pathname === '/rules/mlbb' || pathname === '/rules/ps5'
+  }
+  return isActive
+}
+
 export function Header() {
   const [open, setOpen] = useState(false)
+  const { pathname } = useLocation()
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/80 bg-ground/90 backdrop-blur-xl">
@@ -26,11 +34,11 @@ export function Header() {
             <NavLink
               key={link.to}
               to={link.to}
-              end={link.to === '/'}
+              end={link.to === '/' || link.to === '/rules'}
               className={({ isActive }) =>
                 [
                   'px-3 py-2 label-tactical transition-colors',
-                  isActive
+                  rulebookActive(link.to, isActive, pathname)
                     ? 'text-cyan border-b-2 border-cyan'
                     : 'text-muted hover:text-ink',
                 ].join(' ')
@@ -63,19 +71,21 @@ export function Header() {
               <NavLink
                 key={link.to}
                 to={link.to}
-                end={link.to === '/'}
+                end={link.to === '/' || link.to === '/rules'}
                 onClick={() => setOpen(false)}
                 className={({ isActive }) =>
                   [
                     'px-3 py-3 label-tactical',
-                    isActive ? 'bg-cyan/10 text-cyan' : 'text-muted',
+                    rulebookActive(link.to, isActive, pathname)
+                      ? 'bg-cyan/10 text-cyan'
+                      : 'text-muted',
                   ].join(' ')
                 }
               >
                 {link.label}
               </NavLink>
             ))}
-            <LinkButton to="/register" className="mt-2" >
+            <LinkButton to="/register" className="mt-2">
               Register Now
             </LinkButton>
           </nav>

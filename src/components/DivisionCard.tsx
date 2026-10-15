@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import type { DivisionCapacitySettings } from '../api/registrations'
 import type { TournamentDivision } from '../types'
 import { LinkButton } from './ui/Button'
@@ -96,6 +97,21 @@ export function DivisionCard({
           <p className="text-left text-sm leading-relaxed text-muted">
             {division.description}
           </p>
+          {division.id === 'mlbb' ? (
+            <Link
+              to="/rules/mlbb"
+              className="inline-flex label-code text-cyan hover:underline"
+            >
+              Official MLBB rulebook →
+            </Link>
+          ) : (
+            <Link
+              to="/rules/ps5"
+              className="inline-flex label-code text-violet hover:underline"
+            >
+              Official PS5 rulebook →
+            </Link>
+          )}
           <div>
             <div className="mb-1.5 flex items-center justify-between label-tactical">
               <span className="text-muted">Bracket Slots Filled</span>

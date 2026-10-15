@@ -21,6 +21,7 @@
   --font-display: 'Space Grotesk', sans-serif;
   --font-body: 'Geist', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-myanmar: 'Noto Sans Myanmar', 'Pyidaungsu', sans-serif;
 }
 
 @layer base {
@@ -122,6 +123,12 @@
     font-weight: 500;
     letter-spacing: 0.12em;
     text-transform: uppercase;
+  }
+
+  .font-mm {
+    font-family: var(--font-myanmar);
+    letter-spacing: 0;
+    text-transform: none;
   }
 
   .tabular {

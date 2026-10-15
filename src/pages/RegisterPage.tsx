@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { fetchOrganizations, type Organization } from '../api/organizations'
 import {
   ApiError,
@@ -1813,6 +1813,30 @@ export function RegisterPage() {
                       I accept the Official Rulebook, Anti-Cheat Armored-V4
                       policy, and broadcasting rights release for YFD Days
                       Season 4.
+                      {division === 'mlbb' ? (
+                        <>
+                          {' '}
+                          <Link
+                            to="/rules/mlbb"
+                            className="text-cyan hover:underline"
+                          >
+                            Read the YFD 2026 MLBB rules
+                          </Link>
+                          .
+                        </>
+                      ) : null}
+                      {division === 'ps5' ? (
+                        <>
+                          {' '}
+                          <Link
+                            to="/rules/ps5"
+                            className="text-violet hover:underline"
+                          >
+                            Read the YFD 2026 PS5 rules
+                          </Link>
+                          .
+                        </>
+                      ) : null}
                     </span>
                   </label>
                   {complianceErrors.rulesAccepted ? (

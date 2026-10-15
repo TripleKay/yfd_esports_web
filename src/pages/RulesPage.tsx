@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
 import { FAQS } from '../data/demo'
 
@@ -23,8 +24,8 @@ export function RulesPage() {
           </p>
           <h1 className="mt-3 font-display text-3xl font-bold tracking-tight md:text-5xl">
             Frequently Asked{' '}
-            <span className="text-cyan text-glow-cyan">Questions</span> & Tournament
-            Rules
+            <span className="text-cyan text-glow-cyan">Questions</span> &
+            Tournament Rules
           </h1>
           <p className="mt-4 text-muted">
             Official arbitration rulings, corporate employee eligibility
@@ -36,6 +37,32 @@ export function RulesPage() {
 
       <div className="mx-auto grid max-w-[1280px] gap-8 px-5 pb-16 md:px-12 lg:grid-cols-[1fr_320px]">
         <div>
+          <div className="mb-6 grid gap-3 sm:grid-cols-2">
+            <Link
+              to="/rules/mlbb"
+              className="block border border-cyan/40 bg-cyan/5 px-5 py-5 transition-colors hover:border-cyan"
+            >
+              <p className="label-code text-cyan">MLBB · ISSUE 2026.1</p>
+              <h2 className="mt-2 font-mm text-lg font-semibold leading-snug text-ink">
+                YFD 2026 MLBB ပြိုင်ပွဲစည်းမျဉ်းများ
+              </h2>
+              <p className="mt-3 label-tactical text-cyan">
+                Open MLBB rulebook →
+              </p>
+            </Link>
+            <Link
+              to="/rules/ps5"
+              className="block border border-violet/40 bg-violet/5 px-5 py-5 transition-colors hover:border-violet"
+            >
+              <p className="label-code text-violet">PS5 · ISSUE 2026.1</p>
+              <h2 className="mt-2 font-mm text-lg font-semibold leading-snug text-ink">
+                YFD 2026 PS5 ဘောလုံးပြိုင်ပွဲစည်းမျဉ်းများ
+              </h2>
+              <p className="mt-3 label-tactical text-violet">
+                Open PS5 rulebook →
+              </p>
+            </Link>
+          </div>
           <p className="mb-4 label-code text-muted">
             Showing {FAQS.length} arbitration articles
           </p>
@@ -150,7 +177,10 @@ export function RulesPage() {
             ['15-Minute Timeout Rule', 'Dispute filing window'],
             ['Hosting Disconnect Step', 'Pause & remake criteria'],
           ].map(([title, desc]) => (
-            <div key={title} className="border border-border bg-surface-low p-4">
+            <div
+              key={title}
+              className="border border-border bg-surface-low p-4"
+            >
               <h3 className="font-display text-sm font-semibold">{title}</h3>
               <p className="mt-1 text-xs text-muted">{desc}</p>
             </div>
@@ -162,7 +192,9 @@ export function RulesPage() {
               className="h-36 w-full object-cover opacity-70"
             />
             <div className="absolute inset-0 flex items-end bg-gradient-to-t from-ground to-transparent p-4">
-              <p className="label-code text-cyan">2026 FINAL ARENA · SINGAPORE</p>
+              <p className="label-code text-cyan">
+                2026 FINAL ARENA · SINGAPORE
+              </p>
             </div>
           </div>
         </aside>

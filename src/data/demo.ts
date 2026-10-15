@@ -22,6 +22,7 @@ export const NAV_LINKS = [
   { to: '/register', label: 'Register' },
   { to: '/news', label: 'News' },
   { to: '/rules', label: 'Rules & FAQ' },
+  { to: '/rules/mlbb', label: 'Rulebook' },
 ] as const
 
 export const STATS = [

@@ -9,6 +9,8 @@ const navCols = [
       { to: '/register', label: 'Team Registration' },
       { to: '/news', label: 'News' },
       { to: '/rules', label: 'Rules & Code of Conduct' },
+      { to: '/rules/mlbb', label: 'MLBB Rules & Regulations' },
+      { to: '/rules/ps5', label: 'PS5 Rules & Regulations' },
     ],
   },
   {

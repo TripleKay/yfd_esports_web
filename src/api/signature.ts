@@ -17,6 +17,33 @@ async function sha256Hex(data: Uint8Array): Promise<string> {
   return hex(await crypto.subtle.digest('SHA-256', arrayBuffer(data)))
 }
 
+/**
+ * PHP cannot read the raw multipart body, so both sides hash this list instead.
+ * One line per field or file, sorted, then SHA-256 of the joined text.
+ */
+function normalizeField(value: string): string {
+  return value.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+}
+
+async function multipartCanonical(form: FormData): Promise<string> {
+  const lines: string[] = []
+
+  for (const [key, value] of form.entries()) {
+    if (typeof value === 'string') {
+      lines.push(`field:${key}:${normalizeField(value)}`)
+      continue
+    }
+
+    lines.push(
+      `file:${key}:${await sha256Hex(new Uint8Array(await value.arrayBuffer()))}`,
+    )
+  }
+
+  lines.sort()
+
+  return lines.join('\n')
+}
+
 async function hmacHex(secret: string, message: string): Promise<string> {
   const key = await crypto.subtle.importKey(
     'raw',
@@ -48,8 +75,10 @@ export async function applySignature(
   const headers = new Headers(init.headers)
   const method = (init.method ?? 'GET').toUpperCase()
   let body = init.body
+  let raw: Uint8Array
 
   if (body instanceof FormData) {
+    raw = encoder.encode(await multipartCanonical(body))
     const frozen = new Request('https://signature.invalid/', {
       method: 'POST',
       body,
@@ -59,20 +88,20 @@ export async function applySignature(
       headers.set('Content-Type', type)
     }
     body = await frozen.arrayBuffer()
+  } else {
+    raw =
+      body == null
+        ? new Uint8Array()
+        : typeof body === 'string'
+          ? encoder.encode(body)
+          : body instanceof URLSearchParams
+            ? encoder.encode(body.toString())
+            : body instanceof Blob
+              ? new Uint8Array(await body.arrayBuffer())
+              : body instanceof ArrayBuffer
+                ? new Uint8Array(body)
+                : new Uint8Array()
   }
-
-  const raw =
-    body == null
-      ? new Uint8Array()
-      : typeof body === 'string'
-        ? encoder.encode(body)
-        : body instanceof URLSearchParams
-          ? encoder.encode(body.toString())
-          : body instanceof Blob
-            ? new Uint8Array(await body.arrayBuffer())
-            : body instanceof ArrayBuffer
-              ? new Uint8Array(body)
-              : new Uint8Array()
 
   const parsed = new URL(url, window.location.origin)
   const timestamp = Math.floor(Date.now() / 1000).toString()
